@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ShieldCheck,
@@ -123,7 +123,7 @@ export default function AdminDashboard() {
 
     notify(`👑 Successfully granted Restaurant Admin access to ${targetEmail}!`, "success");
     setPromoteEmail("");
-    refreshStaffUsers();
+    fetchStaffUsersSilent();
   };
 
   const availableCategories = Array.from(
@@ -177,28 +177,32 @@ export default function AdminDashboard() {
 
   const [refreshingUsers, setRefreshingUsers] = useState(false);
 
-  const refreshStaffUsers = async () => {
-    setRefreshingUsers(true);
+  const fetchStaffUsersSilent = useCallback(async () => {
     const userList = await fetchAllUserRolesAndProfiles();
     setStaffUsers(userList);
+  }, []);
+
+  const handleManualRefreshUsers = async () => {
+    setRefreshingUsers(true);
+    await fetchStaffUsersSilent();
     notify("🔄 Staff & User list refreshed from Database!", "info");
     setTimeout(() => setRefreshingUsers(false), 600);
   };
 
   useEffect(() => {
-    refreshStaffUsers();
+    fetchStaffUsersSilent();
     refreshMenu();
 
     const staffChannel = supabase
       .channel("realtime_staff_roles_channel")
-      .on("postgres_changes", { event: "*", schema: "public", table: "customers" }, () => refreshStaffUsers())
-      .on("postgres_changes", { event: "*", schema: "public", table: "user_roles" }, () => refreshStaffUsers())
+      .on("postgres_changes", { event: "*", schema: "public", table: "customers" }, () => fetchStaffUsersSilent())
+      .on("postgres_changes", { event: "*", schema: "public", table: "user_roles" }, () => fetchStaffUsersSilent())
       .subscribe();
 
     return () => {
       supabase.removeChannel(staffChannel);
     };
-  }, [activeTab, refreshMenu]);
+  }, [activeTab, refreshMenu, fetchStaffUsersSilent]);
 
   const activeOrdersList = orders.filter(
     (o) => o.status !== "delivered" && o.status !== "cancelled" && o.status !== "pending_payment" && o.status !== "payment_submitted"
@@ -1116,7 +1120,7 @@ export default function AdminDashboard() {
             </div>
             <div className="flex items-center gap-2">
               <button
-                onClick={refreshStaffUsers}
+                onClick={handleManualRefreshUsers}
                 className="flex items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-3 py-2 text-xs font-bold text-neutral-700 shadow-sm transition hover:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white"
               >
                 <RefreshCw size={13} className={refreshingUsers ? "animate-spin text-brand" : ""} /> Refresh Users
