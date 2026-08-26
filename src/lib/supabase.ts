@@ -448,18 +448,15 @@ export async function updateUserRoleInSupabase(targetUserId: string, newRole: Ap
 /**
  * Fetches menu items from the Supabase 'menu_items' table.
  */
-export async function fetchMenuItemsFromSupabase(): Promise<FoodItem[] | null> {
+export async function fetchMenuItemsFromSupabase(): Promise<FoodItem[]> {
   try {
     const { data, error } = await supabase.from("menu_items").select("*").order("id", { ascending: false });
 
     if (error) {
-      console.warn("Supabase fetch menu_items warning/error:", error.message);
-      return null;
+      console.error("Supabase fetch menu_items error:", error.message);
+      return [];
     }
-    if (!data || data.length === 0) {
-      return null;
-    }
-    return data.map((item: any) => ({
+    return (data || []).map((item: any) => ({
       id: typeof item.id === "number" ? item.id : Number(item.id) || Date.now(),
       name: item.name || item.title || "Dish",
       price: Number(item.price) || 0,
@@ -481,12 +478,12 @@ export async function fetchMenuItemsFromSupabase(): Promise<FoodItem[] | null> {
     }));
   } catch (err) {
     console.error("Failed to fetch menu_items from Supabase:", err);
-    return null;
+    return [];
   }
 }
 
 /**
- * Inserts a new menu item into Supabase 'menu_items' table.
+ * Inserts a new menu item into Supabase 'menu_items' table and returns the inserted row.
  */
 export async function addMenuItemToSupabase(item: Omit<FoodItem, "id"> & { id?: number }) {
   try {
@@ -506,22 +503,25 @@ export async function addMenuItemToSupabase(item: Omit<FoodItem, "id"> & { id?: 
       image_url: cleanImage,
     };
 
-    let { data, error } = await supabase.from("menu_items").insert([payload]).select();
-
-    // Fallback if PostgREST schema cache has not reloaded
-    if (error && error.code === "PGRST204") {
-      delete payload.rating;
-      delete payload.veg;
-      const res = await supabase.from("menu_items").insert([payload]).select();
-      data = res.data;
-      error = res.error;
-    }
+    const { data, error } = await supabase.from("menu_items").insert([payload]).select();
 
     if (error) {
       console.error("Error inserting menu item to Supabase:", error.message);
       return { success: false, error: error.message };
     }
-    return { success: true, data };
+
+    const insertedRow: FoodItem | null = data && data[0] ? {
+      id: Number(data[0].id),
+      name: data[0].name,
+      price: Number(data[0].price) || 0,
+      category: data[0].category || "General",
+      veg: Boolean(data[0].veg),
+      rating: Number(data[0].rating) || 4.5,
+      description: data[0].description || "",
+      image: data[0].image || data[0].image_url || cleanImage,
+    } : null;
+
+    return { success: true, data: insertedRow };
   } catch (err: any) {
     console.error("Exception adding menu item:", err);
     return { success: false, error: err?.message || "Failed to add menu item" };
@@ -550,7 +550,19 @@ export async function updateMenuItemInSupabase(id: number, updates: Partial<Food
       console.error("Error updating menu item in Supabase:", error.message);
       return { success: false, error: error.message };
     }
-    return { success: true, data };
+
+    const updatedRow: FoodItem | null = data && data[0] ? {
+      id: Number(data[0].id),
+      name: data[0].name,
+      price: Number(data[0].price) || 0,
+      category: data[0].category || "General",
+      veg: Boolean(data[0].veg),
+      rating: Number(data[0].rating) || 4.5,
+      description: data[0].description || "",
+      image: data[0].image || data[0].image_url || updates.image || "",
+    } : null;
+
+    return { success: true, data: updatedRow };
   } catch (err: any) {
     console.error("Exception updating menu item:", err);
     return { success: false, error: err?.message || "Failed to update menu item" };

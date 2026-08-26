@@ -7,7 +7,7 @@ import {
   useRef,
   type ReactNode,
 } from "react";
-import { menu as defaultMenu, type FoodItem } from "../data/menu";
+import { type FoodItem } from "../data/menu";
 import {
   safeParseJSON,
 } from "../utils/sanitize";
@@ -169,7 +169,7 @@ const defaultUser: User = {
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User>(() => load("manas_user", defaultUser));
-  const [menuItems, setMenuItems] = useState<FoodItem[]>(defaultMenu);
+  const [menuItems, setMenuItems] = useState<FoodItem[]>([]);
   const [cart, setCart] = useState<CartItem[]>(() => load("manas_cart", []));
   const [favorites, setFavorites] = useState<number[]>(() =>
     load("manas_fav", [])
@@ -527,46 +527,44 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const addMenuItem = useCallback(
     async (item: Omit<FoodItem, "id">) => {
       const res = await addMenuItemToSupabase(item);
-      if (res && res.success) {
+      if (res && res.success && res.data) {
+        const newRow = res.data as FoodItem;
+        setMenuItems((prev) => [newRow, ...prev.filter((i) => i.id !== newRow.id)]);
         notify(`✨ Added "${item.name}" to database!`, "success");
-        await refreshMenu();
       } else {
-        notify(`❌ DB Error: ${res?.error || "Failed to add menu item to database"}`, "error");
+        notify(`Failed to add item: ${res?.error || "Unknown database error"}`, "error");
       }
     },
-    [notify, refreshMenu]
+    [notify]
   );
 
   const updateMenuItem = useCallback(
     async (id: number, updates: Partial<FoodItem>) => {
-      setMenuItems((prev) =>
-        prev.map((item) => (item.id === id ? { ...item, ...updates } : item))
-      );
-
       const res = await updateMenuItemInSupabase(id, updates);
-      if (res && res.success) {
+      if (res && res.success && res.data) {
+        const updatedRow = res.data as FoodItem;
+        setMenuItems((prev) =>
+          prev.map((item) => (item.id === id ? { ...item, ...updatedRow } : item))
+        );
         notify(`✏️ Updated menu item in database!`, "success");
-        refreshMenu();
       } else {
-        notify(res?.error || "Failed to update menu item in database", "error");
+        notify(`Failed to update item: ${res?.error || "Unknown database error"}`, "error");
       }
     },
-    [notify, refreshMenu]
+    [notify]
   );
 
   const deleteMenuItem = useCallback(
     async (id: number) => {
-      setMenuItems((prev) => prev.filter((item) => item.id !== id));
-
       const res = await deleteMenuItemFromSupabase(id);
       if (res && res.success) {
+        setMenuItems((prev) => prev.filter((item) => item.id !== id));
         notify(`🗑️ Deleted menu item from database`, "info");
-        refreshMenu();
       } else {
-        notify(res?.error || "Failed to delete menu item from database", "error");
+        notify(`Failed to delete item: ${res?.error || "Unknown database error"}`, "error");
       }
     },
-    [notify, refreshMenu]
+    [notify]
   );
 
   const signUp = useCallback(
