@@ -297,11 +297,12 @@ export default function AdminDashboard() {
       item.category.toLowerCase().includes(search.toLowerCase())
   );
 
-  const filteredStaffUsers = staffUsers.filter(
-    (u) =>
-      u.name.toLowerCase().includes(staffSearch.toLowerCase()) ||
-      u.email.toLowerCase().includes(staffSearch.toLowerCase())
-  );
+  const filteredStaffUsers = staffUsers.filter((u) => {
+    const nameStr = (u.name || "").toLowerCase();
+    const emailStr = (u.email || "").toLowerCase();
+    const searchStr = (staffSearch || "").toLowerCase();
+    return nameStr.includes(searchStr) || emailStr.includes(searchStr);
+  });
 
   const handleAddSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1190,10 +1191,10 @@ export default function AdminDashboard() {
                       <td className="p-4">
                         <div className="flex items-center gap-2">
                           <span className="grid h-8 w-8 place-items-center rounded-full bg-brand/10 text-brand font-black">
-                            {u.name.charAt(0).toUpperCase()}
+                            {(u.name || u.email || "U").charAt(0).toUpperCase()}
                           </span>
                           <div>
-                            <p className="font-bold text-ink dark:text-white">{u.name}</p>
+                            <p className="font-bold text-ink dark:text-white">{u.name || u.email || "Registered User"}</p>
                             {u.phone && <p className="text-[10px] text-neutral-400">{u.phone}</p>}
                           </div>
                         </div>

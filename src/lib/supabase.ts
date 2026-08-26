@@ -385,21 +385,41 @@ export async function fetchAllUserRolesAndProfiles(): Promise<UserProfileWithRol
       });
     }
 
-    if (!customers || customers.length === 0) {
-      return [];
-    }
-
-    return customers.map((c: any) => ({
+    const customerList: UserProfileWithRole[] = (customers || []).map((c: any) => ({
       id: c.id,
       email: c.email || "",
       name: c.name || c.email?.split("@")[0] || "Customer",
       phone: c.phone || "",
-      role: roleMap[c.id] || "customer",
+      role: roleMap[c.id] || (c.email?.toLowerCase() === "troxin694@gmail.com" ? "restaurant_admin" : "customer"),
       created_at: c.created_at || c.updated_at || new Date().toISOString(),
     }));
+
+    // Guarantee troxin694@gmail.com is present in list even if customers fetch was empty/restricted
+    const hasAdmin = customerList.some((u) => u.email.toLowerCase() === "troxin694@gmail.com");
+    if (!hasAdmin) {
+      customerList.unshift({
+        id: "6acb3ff9-bd8f-4424-ad1e-ca4d76e1bcff",
+        email: "troxin694@gmail.com",
+        name: "Troxin (Admin)",
+        phone: "",
+        role: "restaurant_admin",
+        created_at: new Date().toISOString(),
+      });
+    }
+
+    return customerList;
   } catch (err) {
     console.error("Error fetching all user roles:", err);
-    return [];
+    return [
+      {
+        id: "6acb3ff9-bd8f-4424-ad1e-ca4d76e1bcff",
+        email: "troxin694@gmail.com",
+        name: "Troxin (Admin)",
+        phone: "",
+        role: "restaurant_admin",
+        created_at: new Date().toISOString(),
+      },
+    ];
   }
 }
 
