@@ -341,12 +341,12 @@ export const reviews = [
 ];
 
 export const galleryImages = [
-  pexels.thali,
-  pexels.dosa,
-  pexels.paneer,
-  pexels.pizza,
-  pexels.biryani,
-  pexels.dal,
-  pexels.naan,
-  pexels.sabzi,
+  { src: "/images/bamboo-entrance.jpg", title: "Traditional Bamboo Entrance", category: "Ambiance" },
+  { src: "/images/bamboo-group.jpg", title: "Cozy Group Gatherings at Bamboo Hut", category: "Ambiance" },
+  { src: "/images/happy-customers.jpg", title: "Happy Groups & Celebrations at MANAS", category: "Hospitality" },
+  { src: "/images/resort-lawn-night.jpg", title: "Lush Night Garden Lawn & Resort", category: "Resort" },
+  { src: "/images/delicious-food-table.jpg", title: "Authentic Multi-Cuisine Feast", category: "Food" },
+  { src: "/images/swimming-pool.jpg", title: "Illuminated Night Swimming Pool", category: "Resort" },
+  { src: "/images/fine-dining.jpg", title: "Fine Dining Hall & Chandeliers", category: "Dining" },
+  { src: "/images/hotel-exterior.jpg", title: "HOTEL MANAS Grand Entrance", category: "Resort" },
 ];

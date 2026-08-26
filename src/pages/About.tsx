@@ -6,21 +6,21 @@ import Gallery from "../components/Gallery";
 const facilities = [
   {
     icon: Waves,
-    title: "Swimming Pool",
-    desc: "Take a refreshing dip in our clean, temperature-controlled pool surrounded by lush greenery.",
-    image: "https://images.unsplash.com/photo-1571896349842-33c89424de2d?auto=format&fit=crop&w=800&q=80",
+    title: "Swimming Pool & Night Deck",
+    desc: "Take a refreshing dip in our clean, temperature-controlled swimming pool with ambient underwater lighting.",
+    image: "/images/swimming-pool.jpg",
   },
   {
     icon: BedDouble,
-    title: "Luxury Rooms",
-    desc: "Stay in our elegant, comfortable rooms designed for the perfect getaway with premium amenities.",
-    image: "https://images.unsplash.com/photo-1611892440504-42a792e24d32?auto=format&fit=crop&w=800&q=80",
+    title: "Luxury AC Rooms & Suites",
+    desc: "Stay in our spacious, air-conditioned rooms designed with wooden ceilings, plush bedding, and modern amenities.",
+    image: "/images/luxury-room.png",
   },
   {
     icon: UtensilsCrossed,
-    title: "Fine Restaurant",
-    desc: "Savour multi-cuisine delicacies in our warm, welcoming dining space with impeccable service.",
-    image: "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=800&q=80",
+    title: "Fine Restaurant & Dining Hall",
+    desc: "Savour multi-cuisine delicacies in our warm, welcoming dining hall with elegant chandeliers and impeccable service.",
+    image: "/images/fine-dining.jpg",
   },
 ];
 
@@ -61,14 +61,21 @@ export default function About() {
             thalis, we bring the flavours of India and beyond right to your plate.
           </p>
         </motion.div>
-        <motion.img
-          initial={{ opacity: 0, scale: 0.95 }}
-          whileInView={{ opacity: 1, scale: 1 }}
-          viewport={{ once: true }}
-          src="https://images.unsplash.com/photo-1552566626-52f8b828add9?auto=format&fit=crop&w=900&q=80"
-          alt="Our restaurant"
-          className="aspect-[4/3] w-full rounded-[28px] object-cover shadow-2xl"
-        />
+        <div className="relative overflow-hidden rounded-[28px] shadow-2xl group border border-black/5 dark:border-white/10">
+          <motion.img
+            initial={{ opacity: 0, scale: 0.95 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            viewport={{ once: true }}
+            src="/images/hotel-exterior.jpg"
+            alt="HOTEL MANAS Family Restaurant & Resort Exterior"
+            className="aspect-[16/10] sm:aspect-[4/3] w-full object-cover object-center transition-transform duration-500 group-hover:scale-105"
+          />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
+          <div className="absolute bottom-4 left-4 right-4 rounded-2xl bg-black/60 p-3.5 backdrop-blur border border-white/10 shadow-xl">
+            <p className="text-sm font-extrabold text-white tracking-wide">🏨 HOTEL MANAS</p>
+            <p className="text-[11px] font-bold text-amber-400">Family Restaurant • Swimming Pool • Luxury Rooms • Garden</p>
+          </div>
+        </div>
       </div>
 
       {/* Stats */}
@@ -97,7 +104,7 @@ export default function About() {
           center
           eyebrow="What We Offer"
           title="Our Facilities"
-          subtitle="More than just a restaurant — a complete experience."
+          subtitle="More than just a restaurant — a complete luxury resort experience."
         />
         <div className="mt-10 grid gap-6 lg:grid-cols-3">
           {facilities.map((f, i) => (
@@ -107,23 +114,26 @@ export default function About() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: i * 0.08 }}
-              className="group overflow-hidden rounded-[24px] bg-white shadow-sm ring-1 ring-black/5 dark:bg-neutral-900 dark:ring-white/10"
+              className="group overflow-hidden rounded-[28px] bg-white shadow-md ring-1 ring-black/5 dark:bg-neutral-900 dark:ring-white/10"
             >
-              <div className="relative h-52 overflow-hidden">
+              <div className="relative aspect-[16/10] sm:aspect-[4/3] w-full overflow-hidden">
                 <img
                   src={f.image}
                   alt={f.title}
-                  className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+                  loading="lazy"
+                  decoding="async"
+                  className="h-full w-full object-cover object-center transition-transform duration-500 group-hover:scale-105"
                 />
-                <span className="absolute left-4 top-4 grid h-11 w-11 place-items-center rounded-2xl bg-brand text-white shadow-lg">
-                  <f.icon size={20} />
+                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
+                <span className="absolute left-3.5 top-3.5 grid h-10 w-10 place-items-center rounded-2xl bg-brand text-white shadow-lg shadow-brand/30">
+                  <f.icon size={18} />
                 </span>
               </div>
               <div className="p-6">
-                <h3 className="text-lg font-bold text-ink dark:text-white">
+                <h3 className="text-xl font-extrabold text-ink dark:text-white">
                   {f.title}
                 </h3>
-                <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">
+                <p className="mt-2 text-xs leading-relaxed text-neutral-600 dark:text-neutral-400">
                   {f.desc}
                 </p>
               </div>

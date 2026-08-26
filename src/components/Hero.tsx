@@ -81,30 +81,31 @@ export default function Hero() {
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.6, delay: 0.15 }}
-          className="relative"
+          className="relative overflow-hidden rounded-[40px] shadow-2xl group border border-black/5 dark:border-white/10"
         >
           <motion.img
-            animate={{ y: [0, -14, 0] }}
+            animate={{ y: [0, -10, 0] }}
             transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
-            src="https://images.unsplash.com/photo-1567620905732-2d1ec7ab7445?auto=format&fit=crop&w=900&q=80"
-            alt="Delicious food"
-            className="mx-auto aspect-square w-full max-w-md rounded-[40px] object-cover shadow-2xl"
+            src="/images/hero-delicious-food.jpg"
+            alt="HOTEL MANAS Delicious Food & Restaurant"
+            className="mx-auto aspect-square w-full max-w-md object-cover object-[center_35%] scale-[1.08] transition-transform duration-700 group-hover:scale-[1.14]"
           />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.6 }}
-            className="glass absolute -bottom-4 left-2 flex items-center gap-3 rounded-2xl p-3 shadow-xl sm:left-6"
+            className="glass absolute bottom-3 left-3 flex items-center gap-3 rounded-2xl p-3 shadow-xl backdrop-blur-md border border-white/20 sm:left-4"
           >
-            <span className="grid h-10 w-10 place-items-center rounded-xl bg-green-500 text-white">
+            <span className="grid h-10 w-10 place-items-center rounded-xl bg-brand text-white shadow-md shadow-brand/30">
               <ChefHat size={18} />
             </span>
             <div>
               <p className="text-xs font-bold text-ink dark:text-white">
-                Freshly Cooked
+                Freshly Cooked & Hot
               </p>
               <p className="text-[10px] text-neutral-500 dark:text-neutral-300">
-                Made with love daily
+                HOTEL MANAS Multi-Cuisine Feast
               </p>
             </div>
           </motion.div>

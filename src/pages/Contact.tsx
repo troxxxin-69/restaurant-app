@@ -7,10 +7,11 @@ import SectionTitle from "../components/SectionTitle";
 import { sanitizeInput, sanitizeEmail } from "../utils/sanitize";
 
 export default function Contact() {
-  const { notify } = useApp();
+  const { notify, sendContactMessage } = useApp();
   const [form, setForm] = useState({ name: "", email: "", message: "" });
+  const [sending, setSending] = useState(false);
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     const cleanName = sanitizeInput(form.name, 100);
     const cleanEmail = sanitizeEmail(form.email);
@@ -24,7 +25,9 @@ export default function Contact() {
       notify("Please enter a valid email address", "error");
       return;
     }
-    notify("Message sent! We'll get back to you soon 🎉");
+    setSending(true);
+    await sendContactMessage({ name: cleanName, email: cleanEmail, message: cleanMessage });
+    setSending(false);
     setForm({ name: "", email: "", message: "" });
   };
 
@@ -111,9 +114,10 @@ export default function Contact() {
             </div>
             <button
               type="submit"
-              className="flex w-full items-center justify-center gap-2 rounded-full bg-brand py-3.5 font-semibold text-white shadow-lg shadow-brand/30 transition hover:bg-brand-dark"
+              disabled={sending}
+              className="flex w-full items-center justify-center gap-2 rounded-full bg-brand py-3.5 font-semibold text-white shadow-lg shadow-brand/30 transition hover:bg-brand-dark disabled:opacity-50"
             >
-              <Send size={18} /> Send Message
+              <Send size={18} /> {sending ? "Sending..." : "Send Message"}
             </button>
           </form>
         </div>

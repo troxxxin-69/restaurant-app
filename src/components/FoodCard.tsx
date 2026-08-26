@@ -20,28 +20,32 @@ export default function FoodCard({ item }: { item: FoodItem }) {
       whileHover={{ y: -6 }}
       className="group flex flex-col overflow-hidden rounded-[20px] bg-white shadow-[0_8px_30px_rgba(0,0,0,0.06)] ring-1 ring-black/5 transition-shadow hover:shadow-[0_18px_50px_rgba(255,107,0,0.18)] dark:bg-neutral-900 dark:ring-white/10"
     >
-      <div className="relative h-44 overflow-hidden">
+      <div className="relative h-44 w-full aspect-[4/3] overflow-hidden">
         <img
           src={item.image}
           alt={item.name}
           loading="lazy"
+          decoding="async"
+          onError={(e) => {
+            e.currentTarget.src = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80";
+          }}
           className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
         <button
           onClick={() => toggleFavorite(item.id)}
           aria-label="Toggle favorite"
-          className="absolute right-3 top-3 grid h-9 w-9 place-items-center rounded-full bg-white/90 shadow-md backdrop-blur transition hover:scale-110 dark:bg-neutral-800/90"
+          className="absolute right-3 top-3 grid h-10 w-10 place-items-center rounded-full bg-white/90 shadow-md backdrop-blur transition hover:scale-110 dark:bg-neutral-800/90"
         >
           <Heart
             className={cn(
-              "h-4.5 w-4.5 transition",
+              "h-5 w-5 transition",
               isFav ? "fill-red-500 text-red-500" : "text-neutral-500"
             )}
             size={18}
           />
         </button>
-        <span className="absolute bottom-3 left-3 flex items-center gap-1 rounded-full bg-white/90 px-2 py-0.5 text-xs font-semibold text-ink shadow dark:bg-neutral-800/90 dark:text-white">
+        <span className="absolute bottom-3 left-3 flex items-center gap-1 rounded-full bg-white/90 px-2.5 py-1 text-xs font-semibold text-ink shadow dark:bg-neutral-800/90 dark:text-white">
           <Star className="h-3 w-3 fill-amber-400 text-amber-400" /> {item.rating}
         </span>
       </div>
@@ -59,10 +63,10 @@ export default function FoodCard({ item }: { item: FoodItem }) {
 
         <div className="mt-auto flex items-center justify-between">
           <span className="text-lg font-bold text-brand">₹{item.price}</span>
-          <div className="flex items-center gap-1 rounded-full border border-neutral-200 dark:border-neutral-700">
+          <div className="flex items-center gap-1.5 rounded-full border border-neutral-200 p-0.5 dark:border-neutral-700">
             <button
               onClick={() => setQty((q) => Math.max(1, q - 1))}
-              className="grid h-7 w-7 place-items-center rounded-full text-neutral-600 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
+              className="grid h-8 w-8 place-items-center rounded-full text-neutral-600 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
               aria-label="Decrease"
             >
               <Minus size={14} />
@@ -70,7 +74,7 @@ export default function FoodCard({ item }: { item: FoodItem }) {
             <span className="w-5 text-center text-sm font-semibold">{qty}</span>
             <button
               onClick={() => setQty((q) => q + 1)}
-              className="grid h-7 w-7 place-items-center rounded-full text-neutral-600 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
+              className="grid h-8 w-8 place-items-center rounded-full text-neutral-600 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
               aria-label="Increase"
             >
               <Plus size={14} />
@@ -84,7 +88,7 @@ export default function FoodCard({ item }: { item: FoodItem }) {
             addToCart(item, qty);
             setQty(1);
           }}
-          className="mt-3 flex items-center justify-center gap-2 rounded-full bg-brand py-2.5 text-sm font-semibold text-white shadow-lg shadow-brand/30 transition hover:bg-brand-dark"
+          className="mt-3.5 flex min-h-[44px] items-center justify-center gap-2 rounded-full bg-brand py-2.5 text-sm font-semibold text-white shadow-lg shadow-brand/30 transition hover:bg-brand-dark"
         >
           <ShoppingBag size={16} /> Add to Cart
         </motion.button>

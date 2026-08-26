@@ -2,7 +2,12 @@ import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { BadgePercent, ArrowRight } from "lucide-react";
 
+// Set to true to re-enable the promo offer banner
+const SHOW_OFFER_BANNER = false;
+
 export default function OfferBanner() {
+  if (!SHOW_OFFER_BANNER) return null;
+
   return (
     <section className="mx-auto max-w-7xl px-6">
       <motion.div
