@@ -304,7 +304,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Load menu items from Supabase & update state
   const refreshMenu = useCallback(async () => {
     const items = await fetchMenuItemsFromSupabase();
-    if (items && items.length > 0) {
+    if (items !== null) {
       setMenuItems(items);
     }
     return items;

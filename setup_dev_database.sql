@@ -112,6 +112,13 @@ ALTER TABLE public.customers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_roles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.delivery_partners ENABLE ROW LEVEL SECURITY;
 
+-- 10. Enable Full Replica Identity for 100% Realtime DELETE events
+ALTER TABLE public.menu_items REPLICA IDENTITY FULL;
+ALTER TABLE public.orders REPLICA IDENTITY FULL;
+ALTER TABLE public.contact_messages REPLICA IDENTITY FULL;
+ALTER TABLE public.customers REPLICA IDENTITY FULL;
+ALTER TABLE public.user_roles REPLICA IDENTITY FULL;
+
 CREATE POLICY "Everyone can read menu items" ON public.menu_items FOR SELECT USING (true);
 CREATE POLICY "Anyone can insert menu items" ON public.menu_items FOR INSERT WITH CHECK (true);
 CREATE POLICY "Anyone can update menu items" ON public.menu_items FOR UPDATE USING (true);
@@ -137,7 +144,7 @@ CREATE POLICY "Anyone can read delivery_partners" ON public.delivery_partners FO
 CREATE POLICY "Anyone can insert delivery_partners" ON public.delivery_partners FOR INSERT WITH CHECK (true);
 CREATE POLICY "Anyone can update delivery_partners" ON public.delivery_partners FOR UPDATE USING (true);
 
--- 10. Enable Realtime Publications
+-- 11. Enable Realtime Publications
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND tablename = 'orders') THEN
@@ -154,7 +161,7 @@ BEGIN
   END IF;
 END $$;
 
--- 11. Functions & Triggers
+-- 12. Functions & Triggers
 CREATE OR REPLACE FUNCTION public.get_user_role(p_user_id UUID)
 RETURNS TEXT AS $$
 DECLARE
@@ -165,14 +172,14 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- 12. Auto-Assign Admin Permissions for troxin694@gmail.com
+-- 13. Auto-Assign Admin Permissions for troxin694@gmail.com
 INSERT INTO public.user_roles (user_id, role)
 SELECT id, 'restaurant_admin'
 FROM auth.users
 WHERE LOWER(email) = 'troxin694@gmail.com'
 ON CONFLICT (user_id) DO UPDATE SET role = 'restaurant_admin';
 
--- 13. Populate All 160 Food Items
+-- 14. Populate All 160 Food Items
 INSERT INTO public.menu_items (id, name, price, category, veg, rating, description, image, image_url) OVERRIDING SYSTEM VALUE VALUES
 (1, 'Sweet Lassi', 50, 'Drinks', true, 4.6, 'Thick, creamy sweetened yogurt drink in kulhad.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
 (2, 'Masala Lassi', 50, 'Drinks', true, 4.5, 'Yogurt drink blended with roasted spices & mint.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
@@ -335,7 +342,7 @@ INSERT INTO public.menu_items (id, name, price, category, veg, rating, descripti
 (159, 'Thali', 150, 'Special Thali / Combo', true, 4.7, 'Wholesome thali with dal, sabzi, roti & rice.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
 (160, 'Special Manas Thali', 250, 'Special Thali / Combo', true, 4.9, 'Grand special thali with a variety of dishes.', 'https://images.unsplash.com/photo-1567337710282-00832b415979?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1567337710282-00832b415979?auto=format&fit=crop&w=600&h=600&q=80');
 
--- 14. Reset Primary Key Sequence
+-- 15. Reset Primary Key Sequence
 SELECT setval(pg_get_serial_sequence('public.menu_items', 'id'), COALESCE((SELECT MAX(id) FROM public.menu_items), 1) + 1, false);
 
 NOTIFY pgrst, 'reload schema';
