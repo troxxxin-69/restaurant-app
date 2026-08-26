@@ -3,8 +3,11 @@ import type { FoodItem } from "../data/menu";
 import type { Order, AppRole } from "../context/AppContext";
 import { safeParseJSON } from "../utils/sanitize";
 
-let url = import.meta.env.VITE_SUPABASE_URL || "";
-let anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
+const PROD_SUPABASE_URL = "https://dqeremeigtjjlrwrwsny.supabase.co";
+const PROD_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxZXJlbWVpZ3Rqamxyd3J3c255Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUzMjI2ODYsImV4cCI6MjEwMDg5ODY4Nn0.ev66b9QUmLbDhba6zdXwMPB-QJGDWzxWpdbSs_i40SA";
+
+let url = import.meta.env.VITE_SUPABASE_URL || PROD_SUPABASE_URL;
+let anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || PROD_SUPABASE_ANON_KEY;
 
 // Auto-correct if URL and Key are swapped in .env.local
 if (!url.startsWith("http") && anonKey.startsWith("http")) {
@@ -20,20 +23,11 @@ if (url.endsWith("/rest/v1/")) {
   url = url.replace("/rest/v1", "");
 }
 
-// Environmental key hygiene: Validate VITE_ env variables
-if (!import.meta.env.VITE_SUPABASE_URL) {
-  console.warn("⚠️ Security Warning: VITE_SUPABASE_URL is not set in environment variables. Falling back to local offline mode.");
-}
-if (!import.meta.env.VITE_SUPABASE_ANON_KEY) {
-  console.warn("⚠️ Security Warning: VITE_SUPABASE_ANON_KEY is not set in environment variables. Falling back to local offline mode.");
-}
-
-// Fallback to placeholder if url or anonKey is missing to prevent runtime crash
 if (!url) {
-  url = "https://placeholder.supabase.co";
+  url = PROD_SUPABASE_URL;
 }
 if (!anonKey) {
-  anonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsYWNlaG9sZGVyIiwicm9sZSI6ImFub24iLCJpYXQiOjE2MDAwMDAwMDAsImV4cCI6MjAwMDAwMDAwMH0.placeholder";
+  anonKey = PROD_SUPABASE_ANON_KEY;
 }
 
 export const supabase = createClient(url, anonKey);
