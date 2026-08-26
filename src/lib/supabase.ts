@@ -51,6 +51,15 @@ export interface UserProfileWithRole {
   created_at?: string;
 }
 
+export interface ContactMessage {
+  id: string;
+  name: string;
+  email: string;
+  message: string;
+  created_at: string;
+  read?: boolean;
+}
+
 export const ADMIN_EMAILS = [
   "troxin694@gmail.com",
 ];
@@ -852,14 +861,7 @@ export async function toggleDeliveryPartnerAvailability(partnerId: string, isAva
 // Alias insertOrder for direct function usage
 export const insertOrder = insertOrderToSupabase;
 
-export interface ContactMessage {
-  id: string;
-  name: string;
-  email: string;
-  message: string;
-  created_at: string;
-  read?: boolean;
-}
+
 
 export async function insertContactMessageToSupabase(msg: Omit<ContactMessage, "id" | "created_at">) {
   try {
