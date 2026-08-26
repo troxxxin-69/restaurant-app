@@ -450,7 +450,7 @@ export async function updateUserRoleInSupabase(targetUserId: string, newRole: Ap
  */
 export async function fetchMenuItemsFromSupabase(): Promise<FoodItem[] | null> {
   try {
-    const { data, error } = await supabase.from("menu_items").select("*").order("id", { ascending: true });
+    const { data, error } = await supabase.from("menu_items").select("*").order("id", { ascending: false });
 
     if (error) {
       console.warn("Supabase fetch menu_items warning/error:", error.message);
