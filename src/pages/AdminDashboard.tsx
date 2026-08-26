@@ -296,11 +296,13 @@ export default function AdminDashboard() {
 
   const handleAddSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newItem.name.trim() || !newItem.description.trim()) return;
+    if (!newItem.name.trim()) return;
     const finalCat = isCustomCategoryMode && customAddCategory.trim() ? customAddCategory.trim() : newItem.category;
+    const finalDesc = newItem.description.trim() || `Freshly prepared delicious ${newItem.name} with authentic Indian spices.`;
     addMenuItem({
       ...newItem,
       category: finalCat,
+      description: finalDesc,
     });
     setShowAddModal(false);
     setIsCustomCategoryMode(false);
@@ -1418,7 +1420,7 @@ export default function AdminDashboard() {
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-extrabold text-neutral-600 dark:text-neutral-300">Description</label>
-                  <textarea required value={newItem.description} onChange={(e) => setNewItem({ ...newItem, description: e.target.value })} placeholder="Short description of ingredients or taste" rows={3} className="w-full rounded-xl border p-3 text-xs font-semibold outline-none focus:border-brand dark:bg-neutral-800 dark:text-white" />
+                  <textarea value={newItem.description} onChange={(e) => setNewItem({ ...newItem, description: e.target.value })} placeholder="Short description of ingredients or taste (Optional)" rows={3} className="w-full rounded-xl border p-3 text-xs font-semibold outline-none focus:border-brand dark:bg-neutral-800 dark:text-white" />
                 </div>
 
                 {/* Dish Image Management */}
