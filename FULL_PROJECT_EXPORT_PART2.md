@@ -1,3 +1,7 @@
+# MANAS RESTAURANT & RESORT — FULL PROJECT EXPORT PART 2
+
+### File: `src/pages/AdminDashboard.tsx`
+```typescript
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -175,14 +179,9 @@ export default function AdminDashboard() {
 
 
 
-  const [refreshingUsers, setRefreshingUsers] = useState(false);
-
   const refreshStaffUsers = async () => {
-    setRefreshingUsers(true);
     const userList = await fetchAllUserRolesAndProfiles();
     setStaffUsers(userList);
-    notify("🔄 Staff & User list refreshed from Database!", "info");
-    setTimeout(() => setRefreshingUsers(false), 600);
   };
 
   useEffect(() => {
@@ -1119,7 +1118,7 @@ export default function AdminDashboard() {
                 onClick={refreshStaffUsers}
                 className="flex items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-3 py-2 text-xs font-bold text-neutral-700 shadow-sm transition hover:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white"
               >
-                <RefreshCw size={13} className={refreshingUsers ? "animate-spin text-brand" : ""} /> Refresh Users
+                <RefreshCw size={13} /> Refresh Users
               </button>
               <div className="relative w-full max-w-xs">
                 <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400" />
@@ -1673,3 +1672,722 @@ export default function AdminDashboard() {
     </div>
   );
 }
+
+```
+
+---
+
+### File: `src/pages/DeliveryDashboard.tsx`
+```typescript
+import { useEffect, useState } from "react";
+import { motion } from "framer-motion";
+import {
+  Bike,
+  CheckCircle,
+  MapPin,
+  Navigation,
+  PackageCheck,
+  CheckCircle2,
+  ToggleLeft,
+  ToggleRight,
+} from "lucide-react";
+import { useApp } from "../context/AppContext";
+import {
+  fetchDeliveryPartnersFromSupabase,
+  getOrCreateDeliveryPartnerProfile,
+  toggleDeliveryPartnerAvailability,
+  type DeliveryPartner,
+} from "../lib/supabase";
+import { cn } from "../utils/cn";
+
+export default function DeliveryDashboard() {
+  const { user, orders, updateOrderStatus, notify } = useApp();
+  const [partner, setPartner] = useState<DeliveryPartner | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<"assigned" | "history">("assigned");
+
+  useEffect(() => {
+    async function loadPartnerProfile() {
+      setLoading(true);
+      if (user.isLoggedIn) {
+        const profile = await getOrCreateDeliveryPartnerProfile(user.id, user.name, user.phone);
+        setPartner(profile);
+      } else {
+        const partners = await fetchDeliveryPartnersFromSupabase();
+        if (partners.length > 0) {
+          setPartner(partners[0]);
+        }
+      }
+      setLoading(false);
+    }
+    loadPartnerProfile();
+  }, [user]);
+
+  const handleToggleAvailability = async () => {
+    if (!partner) return;
+    const nextState = !partner.is_available;
+    setPartner({ ...partner, is_available: nextState });
+    const res = await toggleDeliveryPartnerAvailability(partner.id, nextState);
+    if (res.success) {
+      notify(
+        nextState
+          ? "🟢 You are now ONLINE & ready for deliveries!"
+          : "🔴 You are now OFFLINE",
+        nextState ? "success" : "info"
+      );
+    }
+  };
+
+  const partnerOrders = orders.filter(
+    (o) =>
+      o.assigned_delivery_partner_id === partner?.id ||
+      (partner && o.status !== "placed" && o.status !== "cancelled" && (!o.assigned_delivery_partner_id || o.assigned_delivery_partner_id === partner.id))
+  );
+
+  const activeDeliveries = partnerOrders.filter((o) => o.status !== "delivered" && o.status !== "cancelled");
+  const completedDeliveries = partnerOrders.filter((o) => o.status === "delivered");
+
+  const getNextStatusAction = (status: string) => {
+    switch (status) {
+      case "ready_for_pickup":
+      case "preparing":
+      case "accepted":
+        return {
+          nextStatus: "picked_up",
+          label: "Mark Picked Up",
+          icon: PackageCheck,
+          btnClass: "bg-blue-600 hover:bg-blue-700 text-white",
+        };
+      case "picked_up":
+        return {
+          nextStatus: "out_for_delivery",
+          label: "Start Delivery (Out for Delivery)",
+          icon: Navigation,
+          btnClass: "bg-purple-600 hover:bg-purple-700 text-white",
+        };
+      case "out_for_delivery":
+        return {
+          nextStatus: "delivered",
+          label: "Complete Delivery (Delivered)",
+          icon: CheckCircle2,
+          btnClass: "bg-green-600 hover:bg-green-700 text-white",
+        };
+      default:
+        return null;
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="mx-auto flex max-w-7xl flex-col items-center justify-center py-28">
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-brand border-t-transparent" />
+        <p className="mt-4 text-sm font-bold text-neutral-500">Loading Delivery Dashboard...</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mx-auto max-w-7xl px-6 py-10">
+      {/* Header Banner */}
+      <div className="flex flex-col gap-6 rounded-[28px] bg-white p-6 shadow-sm ring-1 ring-black/5 dark:bg-neutral-900 dark:ring-white/10 md:flex-row md:items-center md:justify-between">
+        <div className="flex items-center gap-4">
+          <span className="grid h-16 w-16 place-items-center rounded-2xl bg-brand/10 text-brand">
+            <Bike size={32} />
+          </span>
+          <div>
+            <span className="text-[10px] font-black uppercase tracking-widest text-brand">
+              DELIVERY PARTNER DASHBOARD
+            </span>
+            <h1 className="text-2xl font-black text-ink dark:text-white">
+              {partner?.name || user.name || "Delivery Fleet Partner"}
+            </h1>
+            <p className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
+              Vehicle: <span className="font-semibold text-ink dark:text-white">{partner?.vehicle_number || "RJ-27-EV-1008"}</span> • Phone: {partner?.phone || user.phone || "+91 9876543210"}
+            </p>
+          </div>
+        </div>
+
+        {/* Duty Status */}
+        <div className="flex items-center gap-4 rounded-2xl bg-neutral-50 p-4 dark:bg-neutral-800">
+          <div>
+            <p className="text-xs font-extrabold text-ink dark:text-white">Duty Status</p>
+            <p className={cn("text-xs font-bold", partner?.is_available ? "text-green-600" : "text-neutral-400")}>
+              {partner?.is_available ? "🟢 Available for Orders" : "🔴 Offline"}
+            </p>
+          </div>
+          <button
+            onClick={handleToggleAvailability}
+            className="text-brand transition hover:scale-105"
+            title="Click to toggle availability"
+          >
+            {partner?.is_available ? (
+              <ToggleRight size={42} className="text-green-600" />
+            ) : (
+              <ToggleLeft size={42} className="text-neutral-400" />
+            )}
+          </button>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="mt-8 flex max-w-full overflow-x-auto no-scrollbar gap-3 border-b border-neutral-200 pb-3 dark:border-neutral-800">
+        <button
+          onClick={() => setActiveTab("assigned")}
+          className={cn(
+            "flex shrink-0 items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-bold transition min-h-[44px]",
+            activeTab === "assigned"
+              ? "bg-brand text-white shadow-lg shadow-brand/20"
+              : "bg-white text-neutral-600 hover:bg-neutral-100 dark:bg-neutral-900 dark:text-neutral-300"
+          )}
+        >
+          <Bike size={18} /> Active Deliveries ({activeDeliveries.length})
+        </button>
+        <button
+          onClick={() => setActiveTab("history")}
+          className={cn(
+            "flex shrink-0 items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-bold transition min-h-[44px]",
+            activeTab === "history"
+              ? "bg-brand text-white shadow-lg shadow-brand/20"
+              : "bg-white text-neutral-600 hover:bg-neutral-100 dark:bg-neutral-900 dark:text-neutral-300"
+          )}
+        >
+          <CheckCircle size={18} /> Delivery History ({completedDeliveries.length})
+        </button>
+      </div>
+
+      {/* Orders Grid */}
+      <div className="mt-6">
+        {activeTab === "assigned" ? (
+          activeDeliveries.length === 0 ? (
+            <div className="flex flex-col items-center justify-center gap-3 rounded-[28px] bg-white py-20 text-center shadow-sm dark:bg-neutral-900">
+              <span className="text-5xl">🛵</span>
+              <h3 className="text-xl font-bold text-ink dark:text-white">No active assigned deliveries</h3>
+              <p className="text-xs text-neutral-500">
+                New orders assigned to you by the restaurant will appear here in real-time.
+              </p>
+            </div>
+          ) : (
+            <div className="grid gap-6 md:grid-cols-2">
+              {activeDeliveries.map((ord) => {
+                const action = getNextStatusAction(ord.status);
+                return (
+                  <motion.div
+                    key={ord.id}
+                    layout
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="flex flex-col justify-between rounded-[24px] bg-white p-6 shadow-md ring-1 ring-black/5 dark:bg-neutral-900 dark:ring-white/10"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between border-b border-neutral-100 pb-3 dark:border-neutral-800">
+                        <div>
+                          <span className="text-xs font-black uppercase text-brand">Order #{ord.id}</span>
+                          <p className="text-xs text-neutral-400">
+                            {new Date(ord.date).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                          </p>
+                        </div>
+                        <span
+                          className={cn(
+                            "rounded-full px-3 py-1 text-xs font-black uppercase tracking-wider",
+                            ord.status === "ready_for_pickup"
+                              ? "bg-amber-500/10 text-amber-600"
+                              : ord.status === "picked_up"
+                              ? "bg-blue-500/10 text-blue-600"
+                              : ord.status === "out_for_delivery"
+                              ? "bg-purple-500/10 text-purple-600"
+                              : "bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300"
+                          )}
+                        >
+                          {ord.status.replace(/_/g, " ")}
+                        </span>
+                      </div>
+
+                      <div className="mt-4 space-y-2">
+                        <p className="text-xs font-bold uppercase tracking-wider text-neutral-400">Order Items</p>
+                        {ord.items.map((it, idx) => (
+                          <div key={idx} className="flex justify-between text-xs font-semibold text-ink dark:text-white">
+                            <span>{it.qty}x {it.name}</span>
+                            <span>₹{it.price * it.qty}</span>
+                          </div>
+                        ))}
+                        <div className="mt-2 flex justify-between border-t border-dashed pt-2 text-sm font-extrabold text-ink dark:text-white">
+                          <span>Total Amount to Collect</span>
+                          <span className="text-brand">₹{ord.total} ({ord.payment})</span>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 rounded-2xl bg-neutral-50 p-4 dark:bg-neutral-800/60">
+                        <div className="flex items-start gap-2">
+                          <MapPin size={16} className="mt-0.5 text-brand shrink-0" />
+                          <div>
+                            <p className="text-xs font-bold text-ink dark:text-white">Delivery Address</p>
+                            <p className="mt-0.5 text-xs text-neutral-600 dark:text-neutral-300">{ord.address}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {action && (
+                      <button
+                        onClick={() =>
+                          updateOrderStatus(ord.id, action.nextStatus, {
+                            assigned_delivery_partner_id: partner?.id,
+                            delivery_boy_name: partner?.name || user.name || "Delivery Partner",
+                            delivery_boy_phone: partner?.phone || user.phone || "9876543210",
+                          })
+                        }
+                        className={cn(
+                          "mt-6 flex w-full items-center justify-center gap-2 rounded-full py-3.5 text-sm font-bold shadow-lg transition hover:scale-[1.01]",
+                          action.btnClass
+                        )}
+                      >
+                        <action.icon size={18} /> {action.label}
+                      </button>
+                    )}
+                  </motion.div>
+                );
+              })}
+            </div>
+          )
+        ) : (
+          completedDeliveries.length === 0 ? (
+            <div className="flex flex-col items-center justify-center gap-3 rounded-[28px] bg-white py-20 text-center shadow-sm dark:bg-neutral-900">
+              <span className="text-5xl">📋</span>
+              <h3 className="text-xl font-bold text-ink dark:text-white">No delivery history yet</h3>
+              <p className="text-xs text-neutral-500">Completed deliveries will be archived here.</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {completedDeliveries.map((ord) => (
+                <div
+                  key={ord.id}
+                  className="flex flex-col justify-between gap-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5 dark:bg-neutral-900 dark:ring-white/10 sm:flex-row sm:items-center"
+                >
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-black text-ink dark:text-white">#{ord.id}</span>
+                      <span className="rounded-full bg-green-500/10 px-2.5 py-0.5 text-[10px] font-bold uppercase text-green-600">
+                        Delivered
+                      </span>
+                    </div>
+                    <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+                      {ord.address} • Total: ₹{ord.total}
+                    </p>
+                  </div>
+                  <div className="text-xs font-semibold text-neutral-400">
+                    Delivered at: {ord.delivered_at ? new Date(ord.delivered_at).toLocaleTimeString() : new Date(ord.date).toLocaleTimeString()}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )
+        )}
+      </div>
+    </div>
+  );
+}
+
+```
+
+---
+
+### File: `src/pages/Unauthorized.tsx`
+```typescript
+import { Link } from "react-router-dom";
+import { motion } from "framer-motion";
+import { ShieldAlert } from "lucide-react";
+import { useApp } from "../context/AppContext";
+
+export default function Unauthorized() {
+  const { user } = useApp();
+
+  return (
+    <div className="mx-auto flex max-w-xl flex-col items-center px-6 py-20 text-center">
+      <motion.div
+        initial={{ scale: 0 }}
+        animate={{ scale: 1 }}
+        className="grid h-24 w-24 place-items-center rounded-3xl bg-red-500/10 text-red-500 shadow-xl"
+      >
+        <ShieldAlert size={50} />
+      </motion.div>
+
+      <h1 className="mt-6 text-3xl font-black text-ink dark:text-white">
+        Access Restricted
+      </h1>
+      <p className="mt-2 text-xs text-neutral-500">
+        Your logged in role is <span className="font-bold text-brand uppercase">{user.role.replace("_", " ")}</span>. You do not have permission to access this protected route.
+      </p>
+
+      <div className="mt-6 rounded-2xl bg-amber-500/10 p-4 text-xs font-semibold text-amber-700 dark:text-amber-300">
+        Staff and Admin roles are granted securely by the restaurant owner via the Database Admin Control Panel.
+      </div>
+
+      <Link
+        to="/menu"
+        className="mt-8 rounded-full bg-brand px-7 py-3 text-xs font-bold text-white shadow-lg shadow-brand/30 transition hover:bg-brand-dark"
+      >
+        Return to Restaurant Menu
+      </Link>
+    </div>
+  );
+}
+
+```
+
+---
+
+### File: `setup_production_database.sql`
+```sql
+-- =========================================================================
+-- MANAS RESTAURANT & RESORT — MASTER PRODUCTION DATABASE SETUP & SYNC SCRIPT
+-- Copy and paste this script into Production Supabase SQL Editor and click 'Run'.
+-- Project URL: https://supabase.com/dashboard/project/dqeremeigtjjlrwrwsny/sql/new
+-- =========================================================================
+
+-- 1. CLEAN RESET PUBLIC SCHEMA (Wipes old broken tables & constraints cleanly)
+DROP SCHEMA IF EXISTS public CASCADE;
+CREATE SCHEMA public;
+GRANT ALL ON SCHEMA public TO postgres;
+GRANT ALL ON SCHEMA public TO public;
+GRANT ALL ON SCHEMA public TO anon;
+GRANT ALL ON SCHEMA public TO authenticated;
+GRANT ALL ON SCHEMA public TO service_role;
+
+-- 2. Create menu_items table
+CREATE TABLE public.menu_items (
+  id BIGINT PRIMARY KEY GENERATED BY DEFAULT AS IDENTITY,
+  name TEXT NOT NULL,
+  price NUMERIC NOT NULL CHECK (price >= 0),
+  category TEXT NOT NULL,
+  veg BOOLEAN DEFAULT TRUE,
+  rating NUMERIC DEFAULT 4.5,
+  description TEXT,
+  image TEXT,
+  image_url TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 3. Create orders table
+CREATE TABLE public.orders (
+  id TEXT PRIMARY KEY,
+  customer_name TEXT NOT NULL,
+  phone TEXT NOT NULL,
+  items JSONB NOT NULL,
+  total NUMERIC NOT NULL,
+  status TEXT DEFAULT 'placed',
+  address TEXT NOT NULL,
+  payment TEXT NOT NULL,
+  lat NUMERIC,
+  lng NUMERIC,
+  street_address TEXT,
+  landmark TEXT,
+  city TEXT DEFAULT 'Udaipur',
+  pincode TEXT DEFAULT '313001',
+  google_maps_link TEXT,
+  location_mode TEXT,
+  assigned_delivery_partner_id UUID,
+  delivery_boy_name TEXT,
+  delivery_boy_phone TEXT,
+  utr_number TEXT,
+  payment_proof_url TEXT,
+  payment_submitted_at TIMESTAMPTZ,
+  accepted_at TIMESTAMPTZ,
+  ready_at TIMESTAMPTZ,
+  picked_up_at TIMESTAMPTZ,
+  delivered_at TIMESTAMPTZ,
+  cancellation_reason TEXT,
+  user_id UUID REFERENCES auth.users(id),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 4. Create user_roles table
+CREATE TABLE public.user_roles (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
+  role TEXT NOT NULL CHECK (role IN ('customer', 'restaurant_admin', 'delivery_partner')),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 5. Create delivery_partners table
+CREATE TABLE public.delivery_partners (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  phone TEXT,
+  vehicle_number TEXT,
+  is_available BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 6. Create contact_messages table
+CREATE TABLE public.contact_messages (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  email TEXT NOT NULL,
+  message TEXT NOT NULL,
+  read BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 7. Create customers table
+CREATE TABLE public.customers (
+  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  email TEXT NOT NULL,
+  name TEXT,
+  phone TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 8. Grant Table Access Permissions to anon, authenticated, service_role
+GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated, service_role, postgres;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated, service_role, postgres;
+GRANT ALL ON ALL FUNCTIONS IN SCHEMA public TO anon, authenticated, service_role, postgres;
+
+-- 9. Enable Row Level Security & Policies
+ALTER TABLE public.menu_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.contact_messages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.customers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.user_roles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.delivery_partners ENABLE ROW LEVEL SECURITY;
+
+-- 10. Enable Full Replica Identity for 100% Realtime DELETE events
+ALTER TABLE public.menu_items REPLICA IDENTITY FULL;
+ALTER TABLE public.orders REPLICA IDENTITY FULL;
+ALTER TABLE public.contact_messages REPLICA IDENTITY FULL;
+ALTER TABLE public.customers REPLICA IDENTITY FULL;
+ALTER TABLE public.user_roles REPLICA IDENTITY FULL;
+
+CREATE POLICY "Everyone can read menu items" ON public.menu_items FOR SELECT USING (true);
+CREATE POLICY "Anyone can insert menu items" ON public.menu_items FOR INSERT WITH CHECK (true);
+CREATE POLICY "Anyone can update menu items" ON public.menu_items FOR UPDATE USING (true);
+CREATE POLICY "Anyone can delete menu items" ON public.menu_items FOR DELETE USING (true);
+
+CREATE POLICY "Everyone can insert contact messages" ON public.contact_messages FOR INSERT WITH CHECK (true);
+CREATE POLICY "Everyone can read contact messages" ON public.contact_messages FOR SELECT USING (true);
+CREATE POLICY "Everyone can delete contact messages" ON public.contact_messages FOR DELETE USING (true);
+
+CREATE POLICY "Anyone can read customers" ON public.customers FOR SELECT USING (true);
+CREATE POLICY "Anyone can insert customers" ON public.customers FOR INSERT WITH CHECK (true);
+CREATE POLICY "Anyone can update customers" ON public.customers FOR UPDATE USING (true);
+
+CREATE POLICY "Anyone can read user_roles" ON public.user_roles FOR SELECT USING (true);
+CREATE POLICY "Anyone can insert user_roles" ON public.user_roles FOR INSERT WITH CHECK (true);
+CREATE POLICY "Anyone can update user_roles" ON public.user_roles FOR UPDATE USING (true);
+
+CREATE POLICY "Anyone can read orders" ON public.orders FOR SELECT USING (true);
+CREATE POLICY "Anyone can insert orders" ON public.orders FOR INSERT WITH CHECK (true);
+CREATE POLICY "Anyone can update orders" ON public.orders FOR UPDATE USING (true);
+
+CREATE POLICY "Anyone can read delivery_partners" ON public.delivery_partners FOR SELECT USING (true);
+CREATE POLICY "Anyone can insert delivery_partners" ON public.delivery_partners FOR INSERT WITH CHECK (true);
+CREATE POLICY "Anyone can update delivery_partners" ON public.delivery_partners FOR UPDATE USING (true);
+
+-- 11. Enable Realtime Publications
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND tablename = 'orders') THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.orders;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND tablename = 'delivery_partners') THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.delivery_partners;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND tablename = 'menu_items') THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.menu_items;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND tablename = 'contact_messages') THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.contact_messages;
+  END IF;
+END $$;
+
+-- 12. Functions & Triggers
+CREATE OR REPLACE FUNCTION public.get_user_role(p_user_id UUID)
+RETURNS TEXT AS $$
+DECLARE
+  v_role TEXT;
+BEGIN
+  SELECT role INTO v_role FROM public.user_roles WHERE user_id = p_user_id LIMIT 1;
+  RETURN COALESCE(v_role, 'customer');
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 13. Auto-Assign Admin Permissions for troxin694@gmail.com
+INSERT INTO public.user_roles (user_id, role)
+SELECT id, 'restaurant_admin'
+FROM auth.users
+WHERE LOWER(email) = 'troxin694@gmail.com'
+ON CONFLICT (user_id) DO UPDATE SET role = 'restaurant_admin';
+
+-- 14. Populate All 160 Food Items
+INSERT INTO public.menu_items (id, name, price, category, veg, rating, description, image, image_url) OVERRIDING SYSTEM VALUE VALUES
+(1, 'Sweet Lassi', 50, 'Drinks', true, 4.6, 'Thick, creamy sweetened yogurt drink in kulhad.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(2, 'Masala Lassi', 50, 'Drinks', true, 4.5, 'Yogurt drink blended with roasted spices & mint.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(3, 'Cold Coffee', 50, 'Drinks', true, 4.6, 'Chilled blended coffee with ice cream scoop.', 'https://images.pexels.com/photos/33094574/pexels-photo-33094574.jpeg?auto=compress&cs=tinysrgb&w=600&h=600&fit=crop', 'https://images.pexels.com/photos/33094574/pexels-photo-33094574.jpeg?auto=compress&cs=tinysrgb&w=600&h=600&fit=crop'),
+(4, 'Rose Shake', 50, 'Drinks', true, 4.4, 'Refreshing rose flavoured milkshake.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(5, 'Tomato Soup', 130, 'Soup', true, 4.4, 'Creamy tomato soup served with croutons.', 'https://images.pexels.com/photos/17696681/pexels-photo-17696681.jpeg?auto=compress&cs=tinysrgb&w=600&h=600&fit=crop', 'https://images.pexels.com/photos/17696681/pexels-photo-17696681.jpeg?auto=compress&cs=tinysrgb&w=600&h=600&fit=crop'),
+(6, 'Hot & Sour Soup', 150, 'Soup', true, 4.5, 'Tangy & spicy hot & sour soup with veggies.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(7, 'Manchow Soup', 150, 'Soup', true, 4.5, 'Spicy manchow soup topped with fried noodles.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(8, 'Aloo Paratha + Curd', 80, 'Breakfast', true, 4.6, 'Stuffed potato paratha served with fresh curd.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(9, 'Mix Paratha + Curd', 90, 'Breakfast', true, 4.6, 'Mixed veg stuffed paratha with curd.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(10, 'Pyaaz Paratha + Curd', 80, 'Breakfast', true, 4.5, 'Onion stuffed paratha served with curd.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(11, 'Paneer Paratha + Curd', 90, 'Breakfast', true, 4.7, 'Cottage cheese stuffed paratha with curd.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(12, 'Gobhi Paratha + Curd', 80, 'Breakfast', true, 4.5, 'Cauliflower stuffed paratha with curd.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(13, 'Chhole-Bhature', 90, 'Breakfast', true, 4.8, 'Fluffy bhature served with spiced chickpeas.', 'https://images.unsplash.com/photo-1626132647524-4a77be5178cf?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1626132647524-4a77be5178cf?auto=format&fit=crop&w=600&h=600&q=80'),
+(14, 'Pav Bhaji', 70, 'Breakfast', true, 4.7, 'Buttery mashed veg curry with soft pav.', 'https://images.unsplash.com/photo-1606491956689-2ea866880c84?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1606491956689-2ea866880c84?auto=format&fit=crop&w=600&h=600&q=80'),
+(15, 'Finger Chips', 70, 'Breakfast', true, 4.4, 'Crispy golden potato finger chips.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(16, 'Veg Sandwich', 40, 'Snacks', true, 4.3, 'Fresh vegetable sandwich with chutney.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(17, 'Bread Butter', 40, 'Snacks', true, 4.1, 'Soft bread with a generous layer of butter.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(18, 'Cheese Masala Toast Sandwich', 120, 'Snacks', true, 4.6, 'Toasted sandwich loaded with cheese & masala.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(19, 'Veg Cheese Grill Sandwich', 100, 'Snacks', true, 4.5, 'Grilled sandwich with veggies & melted cheese.', 'https://images.pexels.com/photos/29747752/pexels-photo-29747752.jpeg?auto=compress&cs=tinysrgb&w=600&h=600&fit=crop', 'https://images.pexels.com/photos/29747752/pexels-photo-29747752.jpeg?auto=compress&cs=tinysrgb&w=600&h=600&fit=crop'),
+(20, 'Hara Bahara Kabab', 180, 'Snacks', true, 4.7, 'Spinach & green pea patties, crisp and healthy.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(21, 'Veg Pakoda', 140, 'Snacks', true, 4.4, 'Crunchy mixed vegetable fritters.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(22, 'Paneer Pakoda', 160, 'Snacks', true, 4.6, 'Batter-fried paneer fritters, hot & crisp.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(23, 'Peanut Chaat', 160, 'Snacks', true, 4.5, 'Tangy peanut chaat with onions & spices.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(24, 'Peanut Masala', 140, 'Snacks', true, 4.4, 'Roasted peanuts tossed with masala.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(25, 'Sweet Corn Chaat', 140, 'Snacks', true, 4.5, 'Buttery sweet corn tossed with tangy spices.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(26, 'Chana Roast (Kabuli)', 140, 'Snacks', true, 4.4, 'Roasted kabuli chana with masala.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(27, 'Paneer Tikka (Dry)', 220, 'Snacks', true, 4.8, 'Char-grilled marinated paneer, dry style.', 'https://images.unsplash.com/photo-1599487488170-d11ec9c172f0?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1599487488170-d11ec9c172f0?auto=format&fit=crop&w=600&h=600&q=80'),
+(28, 'Namkeen Chaat', 120, 'Snacks', true, 4.3, 'Savoury namkeen chaat with chutneys.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(29, 'Red Sauce Pasta', 100, 'Chinese', true, 4.5, 'Pasta tossed in tangy red tomato sauce.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(30, 'White Sauce Pasta', 120, 'Chinese', true, 4.6, 'Creamy white sauce pasta with herbs.', 'https://images.pexels.com/photos/29039084/pexels-photo-29039084.jpeg?auto=compress&cs=tinysrgb&w=600&h=600&fit=crop', 'https://images.pexels.com/photos/29039084/pexels-photo-29039084.jpeg?auto=compress&cs=tinysrgb&w=600&h=600&fit=crop'),
+(31, 'Veg Noodles', 100, 'Chinese', true, 4.5, 'Wok-tossed noodles with fresh vegetables.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(32, 'Hakka Noodles', 120, 'Chinese', true, 4.6, 'Classic hakka noodles with crunchy veggies.', 'https://images.pexels.com/photos/18698263/pexels-photo-18698263.jpeg?auto=compress&cs=tinysrgb&w=600&h=600&fit=crop', 'https://images.pexels.com/photos/18698263/pexels-photo-18698263.jpeg?auto=compress&cs=tinysrgb&w=600&h=600&fit=crop'),
+(33, 'Schezwan Noodles', 120, 'Chinese', true, 4.6, 'Fiery Schezwan noodles with vegetables.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(34, 'American Chopsuey', 120, 'Chinese', true, 4.5, 'Crispy noodles topped with sweet & tangy sauce.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(35, 'Chinese Bhel', 120, 'Chinese', true, 4.4, 'Crunchy Indo-Chinese bhel with veggies.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(36, 'Veg Manchurian', 110, 'Chinese', true, 4.6, 'Fried veg balls in spicy Manchurian gravy.', 'https://images.pexels.com/photos/29631426/pexels-photo-29631426.jpeg?auto=compress&cs=tinysrgb&w=600&h=600&fit=crop', 'https://images.pexels.com/photos/29631426/pexels-photo-29631426.jpeg?auto=compress&cs=tinysrgb&w=600&h=600&fit=crop'),
+(37, 'Dry Manchurian', 120, 'Chinese', true, 4.6, 'Crisp veg balls tossed in dry Manchurian sauce.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(38, 'Mushroom Chilli', 140, 'Chinese', true, 4.6, 'Mushrooms tossed in spicy chilli gravy.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(39, 'Dry Mushroom Chilli', 160, 'Chinese', true, 4.7, 'Dry style spicy chilli mushrooms.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(40, 'Paneer Chilli', 130, 'Chinese', true, 4.7, 'Paneer cubes in spicy chilli gravy.', 'https://images.pexels.com/photos/29631468/pexels-photo-29631468.jpeg?auto=compress&cs=tinysrgb&w=600&h=600&fit=crop', 'https://images.pexels.com/photos/29631468/pexels-photo-29631468.jpeg?auto=compress&cs=tinysrgb&w=600&h=600&fit=crop'),
+(41, 'Dry Paneer Chilli', 150, 'Chinese', true, 4.8, 'Paneer tossed dry in tangy chilli sauce.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(42, 'Honey Chilli Potato', 150, 'Chinese', true, 4.7, 'Crispy potatoes glazed in honey chilli sauce.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(43, 'Veg Fry Rice', 120, 'Chinese', true, 4.5, 'Fried rice tossed with fresh vegetables.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(44, 'Schezwan Fry Rice', 140, 'Chinese', true, 4.6, 'Spicy Schezwan flavoured fried rice.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(45, 'Singapore Fry Rice', 160, 'Chinese', true, 4.6, 'Aromatic Singapore-style fried rice.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(46, 'Manas (Special) Fry Rice', 260, 'Chinese', true, 4.9, 'Chef''s special loaded fried rice.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(47, 'Manas Special Pizza', 180, 'Pizza', true, 4.9, 'Signature loaded pizza with extra toppings.', 'https://images.pexels.com/photos/28945103/pexels-photo-28945103.jpeg?auto=compress&cs=tinysrgb&w=600&h=600&fit=crop', 'https://images.pexels.com/photos/28945103/pexels-photo-28945103.jpeg?auto=compress&cs=tinysrgb&w=600&h=600&fit=crop'),
+(48, 'Onion Pizza', 120, 'Pizza', true, 4.4, 'Cheesy pizza topped with onions.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(49, 'Onion Tomato Pizza', 120, 'Pizza', true, 4.5, 'Classic pizza with onion & tomato.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(50, 'Mushroom Pizza', 120, 'Pizza', true, 4.5, 'Pizza topped with fresh mushrooms.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(51, 'Pineapple Pizza', 120, 'Pizza', true, 4.4, 'Sweet & tangy pineapple pizza.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(52, 'Mix Veg. Pizza', 120, 'Pizza', true, 4.6, 'Loaded with assorted fresh vegetables.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(53, 'Paneer Pizza', 150, 'Pizza', true, 4.7, 'Pizza topped with spiced paneer cubes.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(54, 'Magerata Pizza', 120, 'Pizza', true, 4.5, 'Classic margherita with cheese & tomato.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(55, 'Gulab Jamun (2 pcs)', 50, 'Sweets', true, 4.8, 'Warm milk dumplings soaked in sugar syrup.', 'https://images.unsplash.com/photo-1602351447937-745cb720612f?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1602351447937-745cb720612f?auto=format&fit=crop&w=600&h=600&q=80'),
+(56, 'Ras Gulle (2 pcs)', 40, 'Sweets', true, 4.6, 'Spongy cheese balls in light sugar syrup.', 'https://images.unsplash.com/photo-1666190092159-3171cf0fbb12?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1666190092159-3171cf0fbb12?auto=format&fit=crop&w=600&h=600&q=80'),
+(57, 'Idli Sambhar [2]', 60, 'South Indian - Idli Sambhar', true, 4.6, 'Steamed rice cakes with sambar & chutney.', 'https://images.unsplash.com/photo-1668236543090-82eba5ee5976?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1668236543090-82eba5ee5976?auto=format&fit=crop&w=600&h=600&q=80'),
+(58, 'Butter Idli Sambhar', 100, 'South Indian - Idli Sambhar', true, 4.7, 'Buttery idli served with sambar & chutney.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(59, 'Plain Dosa', 80, 'South Indian - Dosa', true, 4.5, 'Crispy rice crepe with sambar & chutney.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(60, 'Masala Dosa', 100, 'South Indian - Dosa', true, 4.8, 'Dosa stuffed with spiced potato masala.', 'https://images.unsplash.com/photo-1630383249896-424e482df921?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1630383249896-424e482df921?auto=format&fit=crop&w=600&h=600&q=80'),
+(61, 'Butter Masala Dosa', 120, 'South Indian - Dosa', true, 4.8, 'Buttery masala dosa, crisp & rich.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(62, 'Mysore Plain Dosa', 100, 'South Indian - Dosa', true, 4.6, 'Plain dosa with spicy Mysore chutney.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(63, 'Mysore Masala Dosa', 120, 'South Indian - Dosa', true, 4.8, 'Masala dosa with spicy Mysore chutney.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(64, 'Butter Mysore Dosa', 140, 'South Indian - Dosa', true, 4.8, 'Buttery Mysore dosa with masala filling.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(65, 'Cheese Plain Dosa', 120, 'South Indian - Dosa', true, 4.6, 'Crispy dosa loaded with melted cheese.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(66, 'Cheese Masala Dosa', 150, 'South Indian - Dosa', true, 4.8, 'Masala dosa topped with cheese.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(67, 'Cheese Butter Masala Dosa', 170, 'South Indian - Dosa', true, 4.9, 'Rich cheese & butter masala dosa.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(68, 'Paper Dosa', 160, 'South Indian - Dosa', true, 4.7, 'Extra large crispy paper-thin dosa.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(69, 'Plain Uttapam', 80, 'South Indian - Uttapam', true, 4.5, 'Thick soft rice pancake with chutney.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(70, 'Onion Uttapam', 90, 'South Indian - Uttapam', true, 4.6, 'Uttapam topped with fresh onions.', 'https://images.unsplash.com/photo-1610192244261-3f33de3f55e4?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1610192244261-3f33de3f55e4?auto=format&fit=crop&w=600&h=600&q=80'),
+(71, 'Onion Tomato Uttapam', 100, 'South Indian - Uttapam', true, 4.6, 'Uttapam topped with onion & tomato.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(72, 'Butter Onion Tomato Uttapam', 120, 'South Indian - Uttapam', true, 4.7, 'Buttery uttapam with onion & tomato.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(73, 'Dal Fry', 110, 'Dal Dish', true, 4.5, 'Yellow lentils tempered with cumin & garlic.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(74, 'Dal Tadka', 130, 'Dal Dish', true, 4.6, 'Lentils finished with a sizzling ghee tadka.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(75, 'Dal Makhani', 180, 'Dal Dish', true, 4.8, 'Creamy black lentils slow-cooked with butter.', 'https://images.unsplash.com/photo-1585937421612-70a008356fbe?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1585937421612-70a008356fbe?auto=format&fit=crop&w=600&h=600&q=80'),
+(76, 'Dal Jeera', 130, 'Dal Dish', true, 4.5, 'Lentils tempered with fragrant cumin.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(77, 'Dal Punjabi', 150, 'Dal Dish', true, 4.6, 'Rich Punjabi-style dal with spices.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(78, 'Butter Dal Fry', 180, 'Dal Dish', true, 4.7, 'Dal fry enriched with a dollop of butter.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(79, 'Onion Salad', 40, 'Salad / Papad / Dahi', true, 4.2, 'Sliced onion salad with lemon.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(80, 'Green Salad', 60, 'Salad / Papad / Dahi', true, 4.4, 'Fresh mixed green salad.', 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=600&h=600&q=80'),
+(81, 'Roasted Papad (Moong)', 20, 'Salad / Papad / Dahi', true, 4.3, 'Crisp roasted moong papad.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(82, 'Fry Papad (Moong)', 30, 'Salad / Papad / Dahi', true, 4.3, 'Crunchy deep-fried moong papad.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(83, 'Makki Papad Roasted', 30, 'Salad / Papad / Dahi', true, 4.3, 'Roasted corn papad, light & crisp.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(84, 'Fry Makki Papad', 40, 'Salad / Papad / Dahi', true, 4.3, 'Fried corn papad, crunchy delight.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(85, 'Masala Papad', 60, 'Salad / Papad / Dahi', true, 4.5, 'Papad topped with onion, tomato & masala.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(86, 'Makki Masala Papad', 80, 'Salad / Papad / Dahi', true, 4.5, 'Corn papad topped with tangy masala.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(87, 'Curd', 50, 'Salad / Papad / Dahi', true, 4.4, 'Fresh homemade curd.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(88, 'Butter Milk', 20, 'Salad / Papad / Dahi', true, 4.4, 'Refreshing spiced buttermilk.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(89, 'Bundi Raita', 100, 'Salad / Papad / Dahi', true, 4.5, 'Curd with crunchy boondi & spices.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(90, 'Veg Raita', 100, 'Salad / Papad / Dahi', true, 4.5, 'Curd mixed with fresh vegetables.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(91, 'Pineapple Raita', 150, 'Salad / Papad / Dahi', true, 4.6, 'Sweet & tangy pineapple raita.', 'https://images.unsplash.com/photo-1631452180519-c014fe946bc7?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1631452180519-c014fe946bc7?auto=format&fit=crop&w=600&h=600&q=80'),
+(92, 'Kadi Pakoda', 130, 'Vegetables', true, 4.5, 'Yogurt curry with soft gram flour dumplings.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(93, 'Matar Palak', 180, 'Vegetables', true, 4.6, 'Green peas cooked in spinach gravy.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(94, 'Mix Veg.', 180, 'Vegetables', true, 4.5, 'Assorted seasonal vegetables in gravy.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(95, 'Bhindi Masala', 180, 'Vegetables', true, 4.6, 'Okra sautéed with onions & spices.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(96, 'Gobhi Masala', 130, 'Vegetables', true, 4.5, 'Cauliflower cooked in spicy masala.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(97, 'Sev Tamatar', 130, 'Vegetables', true, 4.5, 'Tomato gravy topped with crunchy sev.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(98, 'Dudh Sev', 180, 'Vegetables', true, 4.5, 'Traditional milk & sev preparation.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(99, 'Jira Aalu', 130, 'Vegetables', true, 4.4, 'Potatoes tempered with cumin seeds.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(100, 'Aalu Palak', 180, 'Vegetables', true, 4.5, 'Potatoes cooked in spinach gravy.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(101, 'Aalu Payaaz', 130, 'Vegetables', true, 4.4, 'Potatoes cooked with onions & spices.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(102, 'Aalu Matar', 130, 'Vegetables', true, 4.4, 'Potato & green peas in tomato gravy.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(103, 'Aalu Gobhi', 130, 'Vegetables', true, 4.5, 'Potato & cauliflower cooked with spices.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(104, 'Besan Gatta Dry', 180, 'Vegetables', true, 4.6, 'Gram flour dumplings tossed dry with spices.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(105, 'Gatta Curry', 180, 'Vegetables', true, 4.6, 'Rajasthani gram flour dumplings in curry.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(106, 'Lahsuni Palak', 220, 'Vegetables', true, 4.7, 'Spinach tempered with roasted garlic.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(107, 'Corn Palak', 220, 'Vegetables', true, 4.7, 'Sweet corn in creamy spinach gravy.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(108, 'Dahi Fry', 130, 'Vegetables', true, 4.5, 'Curd-based fried curry preparation.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(109, 'Sarson Saag (Seasonal)', 220, 'Vegetables', true, 4.8, 'Winter special mustard greens saag.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(110, 'Ker Sangari Saag (Seasonal)', 260, 'Vegetables', true, 4.7, 'Traditional Rajasthani ker sangari.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(111, 'Matar Paneer', 160, 'Paneer Special', true, 4.6, 'Paneer & green peas in tomato onion gravy.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(112, 'Chana Paneer', 180, 'Paneer Special', true, 4.6, 'Paneer with chickpeas in rich gravy.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(113, 'Palak Paneer', 180, 'Paneer Special', true, 4.7, 'Cottage cheese in a smooth spinach gravy.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(114, 'Paneer Tikka - Gravy', 180, 'Paneer Special', true, 4.8, 'Grilled paneer tikka in creamy gravy.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(115, 'Shahi Paneer', 180, 'Paneer Special', true, 4.8, 'Royal paneer curry with cashew cream.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(116, 'Kadhai Paneer', 180, 'Paneer Special', true, 4.8, 'Paneer cooked with peppers & kadhai masala.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(117, 'Paneer Butter Masala', 180, 'Paneer Special', true, 4.9, 'Paneer in a rich buttery tomato gravy.', 'https://images.pexels.com/photos/29631461/pexels-photo-29631461.jpeg?auto=compress&cs=tinysrgb&w=600&h=600&fit=crop', 'https://images.pexels.com/photos/29631461/pexels-photo-29631461.jpeg?auto=compress&cs=tinysrgb&w=600&h=600&fit=crop'),
+(118, 'Paneer Bhurji', 180, 'Paneer Special', true, 4.6, 'Scrambled paneer with onion, tomato & spices.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(119, 'Mushroom Paneer', 180, 'Paneer Special', true, 4.6, 'Paneer & mushrooms in a spiced gravy.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(120, 'Paneer Punjabi', 180, 'Paneer Special', true, 4.7, 'Rich Punjabi-style paneer curry.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(121, 'Paneer Angara', 180, 'Paneer Special', true, 4.7, 'Smoky paneer in a fiery tomato gravy.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(122, 'Paneer Handi', 180, 'Paneer Special', true, 4.7, 'Paneer slow-cooked in a handi masala.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(123, 'Malai Kopta', 220, 'Paneer Special', true, 4.9, 'Soft koftas in a rich creamy gravy.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(124, 'Paneer Tufani', 180, 'Paneer Special', true, 4.7, 'Spicy tufani-style paneer curry.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(125, 'Paneer Lababdar', 180, 'Paneer Special', true, 4.8, 'Paneer in a luscious tomato butter gravy.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(126, 'Special Rajmaa', 180, 'Paneer Special', true, 4.7, 'Red kidney beans in a hearty gravy.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(127, 'Makka Raabdi', 50, 'Roti', true, 4.5, 'Traditional corn raabdi preparation.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(128, 'Plain Tandoori Roti', 15, 'Roti', true, 4.4, 'Whole wheat bread baked in tandoor.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(129, 'Plain Tava Roti', 15, 'Roti', true, 4.3, 'Soft roti made on the tava.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(130, 'Butter Tandoori Roti', 20, 'Roti', true, 4.5, 'Tandoori roti brushed with butter.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(131, 'Amul Butter Tava Roti', 20, 'Roti', true, 4.5, 'Tava roti with Amul butter.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(132, 'Laccha Paratha Butter', 60, 'Roti', true, 4.7, 'Flaky layered paratha with butter.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(133, 'Butter Naan', 60, 'Roti', true, 4.7, 'Fluffy naan glazed with butter.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(134, 'Plain Naan', 50, 'Roti', true, 4.6, 'Soft leavened flatbread from the tandoor.', 'https://images.unsplash.com/photo-1633945274405-b6c8069047b0?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1633945274405-b6c8069047b0?auto=format&fit=crop&w=600&h=600&q=80'),
+(135, 'Garlic Naan Butter', 80, 'Roti', true, 4.8, 'Garlic naan brushed with butter.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(136, 'Cheese Garlic Naan', 100, 'Roti', true, 4.8, 'Garlic naan loaded with melted cheese.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(137, 'Cheese Naan', 80, 'Roti', true, 4.7, 'Soft naan stuffed with cheese.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(138, 'Missi Roti', 80, 'Roti', true, 4.6, 'Spiced gram flour flatbread.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(139, 'Makka Roti', 50, 'Roti', true, 4.5, 'Traditional corn flour flatbread.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(140, 'Bajara Roti', 60, 'Roti', true, 4.5, 'Healthy pearl millet flatbread.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(141, 'Special Manas Sabji', 280, 'Special Vegetable', true, 4.9, 'Chef''s signature special vegetable curry.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(142, 'Kaju Chana', 220, 'Special Vegetable', true, 4.7, 'Cashews & chickpeas in a rich gravy.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(143, 'Kaju Kari', 240, 'Special Vegetable', true, 4.8, 'Cashews cooked in a creamy curry.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(144, 'Navratan Korma', 220, 'Special Vegetable', true, 4.7, 'Nine-jewel mixed veg in creamy korma.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(145, 'Mushroom Kari', 220, 'Special Vegetable', true, 4.7, 'Mushrooms in a rich flavourful curry.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(146, 'Matar Mushroom', 200, 'Special Vegetable', true, 4.6, 'Green peas & mushrooms in spiced gravy.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(147, 'Kabuli Chana Masala', 200, 'Special Vegetable', true, 4.6, 'White chickpeas in tangy masala.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(148, 'Chana Kari (Kala Chana)', 200, 'Special Vegetable', true, 4.6, 'Black chickpeas in a spiced curry.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(149, 'Paneer Pasanda', 200, 'Special Vegetable', true, 4.8, 'Stuffed paneer in a rich creamy gravy.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(150, 'Cheese Butter Masala', 260, 'Special Vegetable', true, 4.8, 'Cheese in a luscious butter masala gravy.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(151, 'Plain Rice', 100, 'Rice', true, 4.3, 'Perfectly steamed basmati rice.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(152, 'Jeera Rice', 120, 'Rice', true, 4.5, 'Basmati rice tempered with cumin seeds.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(153, 'Veg. Pulav', 150, 'Rice', true, 4.5, 'Mildly spiced rice with mixed vegetables.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(154, 'Matar Pulav', 140, 'Rice', true, 4.5, 'Fragrant rice cooked with green peas.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(155, 'Kashmiri Pulav', 150, 'Rice', true, 4.6, 'Sweet pulav with fruits & nuts.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(156, 'Veg Biryani', 180, 'Rice', true, 4.7, 'Fragrant biryani with veggies & spices.', 'https://images.unsplash.com/photo-1563379091339-03246963d51a?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1563379091339-03246963d51a?auto=format&fit=crop&w=600&h=600&q=80'),
+(157, 'Paneer Pulav', 180, 'Rice', true, 4.7, 'Aromatic pulav loaded with paneer.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(158, 'Dal Baati Chaach', 180, 'Special Thali / Combo', true, 4.8, 'Rajasthani dal baati with chaach. Add Churma Laddu for ₹50.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(159, 'Thali', 150, 'Special Thali / Combo', true, 4.7, 'Wholesome thali with dal, sabzi, roti & rice.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80'),
+(160, 'Special Manas Thali', 250, 'Special Thali / Combo', true, 4.9, 'Grand special thali with a variety of dishes.', 'https://images.unsplash.com/photo-1567337710282-00832b415979?auto=format&fit=crop&w=600&h=600&q=80', 'https://images.unsplash.com/photo-1567337710282-00832b415979?auto=format&fit=crop&w=600&h=600&q=80');
+
+-- 15. Reset Primary Key Sequence
+SELECT setval(pg_get_serial_sequence('public.menu_items', 'id'), COALESCE((SELECT MAX(id) FROM public.menu_items), 1) + 1, false);
+
+NOTIFY pgrst, 'reload schema';
+
+```
+
+---
+
