@@ -526,16 +526,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const addMenuItem = useCallback(
     async (item: Omit<FoodItem, "id">) => {
-      const tempId = Date.now();
-      const newItem: FoodItem = { ...item, id: tempId, rating: item.rating || 4.5 };
-      setMenuItems((prev) => [newItem, ...prev]);
-
       const res = await addMenuItemToSupabase(item);
       if (res && res.success) {
         notify(`✨ Added "${item.name}" to database!`, "success");
-        refreshMenu();
+        await refreshMenu();
       } else {
-        notify(res?.error || "Failed to add menu item to database", "error");
+        notify(`❌ DB Error: ${res?.error || "Failed to add menu item to database"}`, "error");
       }
     },
     [notify, refreshMenu]

@@ -490,6 +490,11 @@ export async function fetchMenuItemsFromSupabase(): Promise<FoodItem[] | null> {
  */
 export async function addMenuItemToSupabase(item: Omit<FoodItem, "id"> & { id?: number }) {
   try {
+    let cleanImage = item.image || "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80";
+    if (cleanImage.startsWith("data:") && cleanImage.length > 50000) {
+      cleanImage = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80";
+    }
+
     const payload: Record<string, any> = {
       name: item.name,
       price: item.price,
@@ -497,7 +502,8 @@ export async function addMenuItemToSupabase(item: Omit<FoodItem, "id"> & { id?: 
       description: item.description || "",
       veg: item.veg !== undefined ? Boolean(item.veg) : true,
       rating: item.rating || 4.5,
-      image: item.image || "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&h=600&q=80",
+      image: cleanImage,
+      image_url: cleanImage,
     };
 
     let { data, error } = await supabase.from("menu_items").insert([payload]).select();
