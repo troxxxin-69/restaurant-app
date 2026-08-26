@@ -172,12 +172,58 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- 13. Auto-Assign Admin Permissions for troxin694@gmail.com
-INSERT INTO public.user_roles (user_id, role)
-SELECT id, 'restaurant_admin'
+-- 13. Auto-Trigger & Backfill for auth.users to public.customers and public.user_roles
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO public.customers (id, email, name, phone, created_at, updated_at)
+  VALUES (
+    NEW.id,
+    NEW.email,
+    COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.raw_user_meta_data->>'name', split_part(NEW.email, '@', 1)),
+    COALESCE(NEW.phone, ''),
+    NOW(),
+    NOW()
+  )
+  ON CONFLICT (id) DO UPDATE SET
+    email = EXCLUDED.email,
+    name = COALESCE(EXCLUDED.name, public.customers.name);
+
+  INSERT INTO public.user_roles (user_id, role)
+  VALUES (
+    NEW.id,
+    CASE WHEN LOWER(NEW.email) = 'troxin694@gmail.com' THEN 'restaurant_admin' ELSE 'customer' END
+  )
+  ON CONFLICT (user_id) DO NOTHING;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+-- Backfill existing auth.users into public.customers and public.user_roles
+INSERT INTO public.customers (id, email, name, phone, created_at, updated_at)
+SELECT
+  id,
+  email,
+  COALESCE(raw_user_meta_data->>'full_name', raw_user_meta_data->>'name', split_part(email, '@', 1)),
+  COALESCE(phone, ''),
+  created_at,
+  NOW()
 FROM auth.users
-WHERE LOWER(email) = 'troxin694@gmail.com'
-ON CONFLICT (user_id) DO UPDATE SET role = 'restaurant_admin';
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO public.user_roles (user_id, role)
+SELECT
+  id,
+  CASE WHEN LOWER(email) = 'troxin694@gmail.com' THEN 'restaurant_admin' ELSE 'customer' END
+FROM auth.users
+ON CONFLICT (user_id) DO NOTHING;
 
 -- 14. Populate All 160 Food Items
 INSERT INTO public.menu_items (id, name, price, category, veg, rating, description, image, image_url) OVERRIDING SYSTEM VALUE VALUES

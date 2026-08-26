@@ -385,19 +385,44 @@ export async function fetchAllUserRolesAndProfiles(): Promise<UserProfileWithRol
       });
     }
 
-    const customerList: UserProfileWithRole[] = (customers || []).map((c: any) => ({
-      id: c.id,
-      email: c.email || "",
-      name: c.name || c.email?.split("@")[0] || "Customer",
-      phone: c.phone || "",
-      role: roleMap[c.id] || (c.email?.toLowerCase() === "troxin694@gmail.com" ? "restaurant_admin" : "customer"),
-      created_at: c.created_at || c.updated_at || new Date().toISOString(),
-    }));
+    const userMap = new Map<string, UserProfileWithRole>();
 
-    // Guarantee troxin694@gmail.com is present in list even if customers fetch was empty/restricted
-    const hasAdmin = customerList.some((u) => u.email.toLowerCase() === "troxin694@gmail.com");
-    if (!hasAdmin) {
-      customerList.unshift({
+    // 1. Add Database customers
+    if (customers) {
+      customers.forEach((c: any) => {
+        if (c && c.email) {
+          userMap.set(c.email.toLowerCase(), {
+            id: c.id,
+            email: c.email || "",
+            name: c.name || c.email?.split("@")[0] || "Customer",
+            phone: c.phone || "",
+            role: roleMap[c.id] || (c.email?.toLowerCase() === "troxin694@gmail.com" ? "restaurant_admin" : "customer"),
+            created_at: c.created_at || c.updated_at || new Date().toISOString(),
+          });
+        }
+      });
+    }
+
+    // 2. Add local registered users cache (catches Prakash Chandaliya & newly signed up users before SQL trigger run)
+    const localUsers = safeParseJSON<any[]>(localStorage.getItem("manas_registered_users"), []);
+    if (Array.isArray(localUsers)) {
+      localUsers.forEach((u: any) => {
+        if (u && u.email && !userMap.has(u.email.toLowerCase())) {
+          userMap.set(u.email.toLowerCase(), {
+            id: u.id || u.email,
+            email: u.email,
+            name: u.name || u.email.split("@")[0] || "Customer",
+            phone: u.phone || "",
+            role: u.role || (u.email.toLowerCase() === "troxin694@gmail.com" ? "restaurant_admin" : "customer"),
+            created_at: u.created_at || new Date().toISOString(),
+          });
+        }
+      });
+    }
+
+    // 3. Guarantee troxin694@gmail.com is present
+    if (!userMap.has("troxin694@gmail.com")) {
+      userMap.set("troxin694@gmail.com", {
         id: "6acb3ff9-bd8f-4424-ad1e-ca4d76e1bcff",
         email: "troxin694@gmail.com",
         name: "Troxin (Admin)",
@@ -407,7 +432,7 @@ export async function fetchAllUserRolesAndProfiles(): Promise<UserProfileWithRol
       });
     }
 
-    return customerList;
+    return Array.from(userMap.values());
   } catch (err) {
     console.error("Error fetching all user roles:", err);
     return [
