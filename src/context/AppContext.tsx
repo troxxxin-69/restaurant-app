@@ -141,6 +141,7 @@ interface AppContextType {
   updateOrderStatus: (orderId: string, status: OrderStatus | string, extraFields?: Record<string, any>) => void;
   submitOrderPaymentProof: (orderId: string, utrNumber: string, screenshotUrl?: string) => Promise<{ success: boolean; error?: string }>;
   adminVerifyOrderPayment: (orderId: string, isApproved: boolean, rejectionReason?: string) => Promise<{ success: boolean; error?: string }>;
+  cancelOrderCustomer: (orderId: string, reason: string) => Promise<{ success: boolean; error?: string; isUpi?: boolean }>;
   clearAllOrders: () => Promise<void>;
   cartOpen: boolean;
   setCartOpen: (v: boolean) => void;
@@ -428,6 +429,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
           }
         }
       )
+      .subscribe();
+
     // Set up Supabase Realtime Subscription for menu_items table
     const menuChannel = supabase
       .channel("realtime_menu_items_channel")
@@ -887,6 +890,54 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [notify]
   );
 
+  const cancelOrderCustomer = useCallback(
+    async (orderId: string, reason: string) => {
+      const targetOrder = orders.find((o) => String(o.id) === String(orderId));
+      if (!targetOrder) {
+        notify("Order not found", "error");
+        return { success: false, error: "Order not found" };
+      }
+
+      const CANCELLABLE_STATUSES = ["placed", "pending_payment", "payment_submitted", "accepted"];
+      if (!CANCELLABLE_STATUSES.includes(String(targetOrder.status))) {
+        notify("This order can no longer be cancelled as it's already being prepared", "error");
+        return { success: false, error: "This order can no longer be cancelled as it's already being prepared" };
+      }
+
+      const cleanReason = reason.trim() || "Cancelled by customer";
+
+      const res = await updateOrderStatusInSupabase(orderId, "cancelled", {
+        cancellation_reason: cleanReason,
+      });
+
+      if (res && !res.success) {
+        notify("This order can no longer be cancelled as it's already being prepared", "error");
+        return { success: false, error: res.error || "Cancellation blocked by server" };
+      }
+
+      setOrders((prev) => {
+        const updatedList = prev.map((o) =>
+          String(o.id) === String(orderId)
+            ? { ...o, status: "cancelled", cancellation_reason: cleanReason }
+            : o
+        );
+        localStorage.setItem("manas_orders", JSON.stringify(updatedList));
+        return updatedList;
+      });
+
+      notify(`Order #${orderId} cancelled successfully`, "info");
+      return {
+        success: true,
+        isUpi: Boolean(
+          targetOrder.utr_number ||
+            targetOrder.payment_type === "UPI" ||
+            String(targetOrder.payment || "").toLowerCase().includes("upi")
+        ),
+      };
+    },
+    [orders, notify]
+  );
+
   const repeatOrder = useCallback(
     (order: Order) => {
       if (order.items.length === 0) {
@@ -975,6 +1026,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         updateOrderStatus,
         submitOrderPaymentProof,
         adminVerifyOrderPayment,
+        cancelOrderCustomer,
         clearAllOrders,
         cartOpen,
         setCartOpen,

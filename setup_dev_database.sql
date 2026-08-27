@@ -391,4 +391,17 @@ INSERT INTO public.menu_items (id, name, price, category, veg, rating, descripti
 -- 15. Reset Primary Key Sequence
 SELECT setval(pg_get_serial_sequence('public.menu_items', 'id'), COALESCE((SELECT MAX(id) FROM public.menu_items), 1) + 1, false);
 
+-- 16. ORDER CANCELLATION BY CUSTOMER RLS POLICY
+DROP POLICY IF EXISTS "Customers can cancel own cancellable orders" ON public.orders;
+CREATE POLICY "Customers can cancel own cancellable orders"
+ON public.orders FOR UPDATE
+USING (
+  auth.uid() = user_id 
+  AND status IN ('placed', 'pending_payment', 'payment_submitted', 'accepted')
+)
+WITH CHECK (
+  auth.uid() = user_id 
+  AND status = 'cancelled'
+);
+
 NOTIFY pgrst, 'reload schema';
