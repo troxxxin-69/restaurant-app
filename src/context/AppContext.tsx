@@ -136,7 +136,7 @@ interface AppContextType {
   toasts: Toast[];
   notify: (message: string, type?: Toast["type"]) => void;
   orders: Order[];
-  placeOrder: (order: Omit<Order, "id" | "date" | "status">) => Order;
+  placeOrder: (order: Omit<Order, "id" | "date" | "status">) => Promise<{ success: boolean; order?: Order; error?: string }>;
   repeatOrder: (order: Order) => void;
   updateOrderStatus: (orderId: string, status: OrderStatus | string, extraFields?: Record<string, any>) => void;
   submitOrderPaymentProof: (orderId: string, utrNumber: string, screenshotUrl?: string) => Promise<{ success: boolean; error?: string }>;
@@ -758,15 +758,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const toggleDarkMode = useCallback(() => setDarkMode((d) => !d), []);
 
   const placeOrder = useCallback(
-    (order: Omit<Order, "id" | "date" | "status">) => {
+    async (order: Omit<Order, "id" | "date" | "status">): Promise<{ success: boolean; order?: Order; error?: string }> => {
       const activeUserId = (user.isLoggedIn && user.id && !user.id.startsWith("usr-guest")) ? user.id : undefined;
       const numericId = Math.floor(10000000 + Math.random() * 89999999);
       const strId = String(numericId);
-
-      if (!activeUserId) {
-        const existingGuestIds = safeParseJSON<string[]>(localStorage.getItem("manas_guest_order_ids"), []);
-        localStorage.setItem("manas_guest_order_ids", JSON.stringify([strId, ...existingGuestIds]));
-      }
 
       const newOrder: Order = {
         ...order,
@@ -778,6 +773,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         date: new Date().toISOString(),
         status: (order as any).status || "placed",
       };
+
       if (user.isLoggedIn && order.phone && (!user.phone || user.phone !== order.phone)) {
         setUser((prev) => {
           const updated = { ...prev, phone: order.phone };
@@ -786,20 +782,29 @@ export function AppProvider({ children }: { children: ReactNode }) {
         });
       }
 
+      // Await database insertion (with targeted FK retry)
+      const res = await insertOrderToSupabase(newOrder);
+
+      if (!res.success) {
+        notify("Order placement failed. Please check your connection and try again", "error");
+        return { success: false, error: res.error || "Order placement failed. Please check your connection and try again" };
+      }
+
+      // On DB success, add to local React state & localStorage
+      if (!activeUserId) {
+        const existingGuestIds = safeParseJSON<string[]>(localStorage.getItem("manas_guest_order_ids"), []);
+        localStorage.setItem("manas_guest_order_ids", JSON.stringify([strId, ...existingGuestIds]));
+      }
+
       setOrders((prev) => {
         const updatedList = [newOrder, ...prev.filter((o) => String(o.id) !== strId)];
         localStorage.setItem("manas_orders", JSON.stringify(updatedList));
         return updatedList;
       });
 
-      insertOrderToSupabase(newOrder).then((res) => {
-        if (res && !res.success) {
-          console.error("Supabase order insert notice:", res.error);
-        }
-      });
-      return newOrder;
+      return { success: true, order: newOrder };
     },
-    [user]
+    [user, notify]
   );
 
   const submitOrderPaymentProof = useCallback(

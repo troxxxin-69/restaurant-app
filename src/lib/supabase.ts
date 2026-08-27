@@ -736,7 +736,7 @@ export async function insertOrderToSupabase(order: any) {
       payment_submitted_at: order.payment_submitted_at || null,
     };
 
-    if (authUserId) {
+    if (authUserId && !String(authUserId).startsWith("usr-guest")) {
       payload.user_id = authUserId;
     }
 
@@ -745,6 +745,23 @@ export async function insertOrderToSupabase(order: any) {
     if (!error) {
       console.log(`Order #${strId} inserted/updated successfully into Supabase orders table!`);
       return { success: true, data };
+    }
+
+    const errStr = String(error.message || "").toLowerCase();
+    const errCode = String(error.code || "");
+    const isFkViolation = errStr.includes("foreign key") || errStr.includes("user_id") || errStr.includes("fkey") || errCode === "23503";
+
+    if (isFkViolation && payload.user_id) {
+      console.warn(`Foreign key constraint issue on user_id (${payload.user_id}). Retrying order insert as guest (user_id = null)...`);
+      delete payload.user_id;
+
+      const retryRes = await supabase.from("orders").upsert(payload, { onConflict: "id" }).select();
+      if (!retryRes.error) {
+        console.log(`Notice: Saved order #${strId} as guest order due to user_id FK constraint issue.`);
+        return { success: true, data: retryRes.data, isGuestFallback: true };
+      }
+      console.error("Retry failed for order insert:", retryRes.error.message);
+      return { success: false, error: retryRes.error.message };
     }
 
     console.error("Supabase insert order error:", error.message);

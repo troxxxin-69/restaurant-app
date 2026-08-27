@@ -297,7 +297,7 @@ export default function Checkout() {
       const isUpiPayment = payment.toLowerCase().includes("upi") || payment.toLowerCase().includes("online");
       const initialStatus = isUpiPayment ? "pending_payment" : "placed";
 
-      const order = placeOrder({
+      const placeRes = await placeOrder({
         customer_name: cleanName,
         phone: cleanPhone,
         payment_type: sanitizeInput(payment, 50),
@@ -315,6 +315,13 @@ export default function Checkout() {
         location_mode: finalMode,
         status: initialStatus,
       } as any);
+
+      if (!placeRes || !placeRes.success || !placeRes.order) {
+        setSubmitting(false);
+        return;
+      }
+
+      const order = placeRes.order;
 
       if (isUpiPayment) {
         setUpiModalOrder(order);
