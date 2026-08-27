@@ -318,28 +318,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Load orders & set up Supabase Realtime Subscription
   const refreshOrders = useCallback(async () => {
     const fetched = await fetchOrdersFromSupabase();
-    const localBackup = safeParseJSON<Order[]>(localStorage.getItem("manas_orders"), []);
-
-    const orderMap = new Map<string, Order>();
-
-    if (Array.isArray(localBackup)) {
-      localBackup.forEach((o) => {
-        if (o && o.id) orderMap.set(String(o.id), o);
-      });
-    }
-
     if (Array.isArray(fetched)) {
-      fetched.forEach((o) => {
-        if (o && o.id) orderMap.set(String(o.id), o);
-      });
+      setOrders(fetched);
+      localStorage.setItem("manas_orders", JSON.stringify(fetched));
     }
-
-    const merged = Array.from(orderMap.values()).sort(
-      (a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime()
-    );
-
-    setOrders(merged);
-    localStorage.setItem("manas_orders", JSON.stringify(merged));
   }, []);
 
   useEffect(() => {
@@ -426,6 +408,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
                   : o
               )
             );
+          } else if (payload.eventType === "DELETE") {
+            const deletedIdStr = String(payload.old?.id || payload.old?.order_id || "");
+            setOrders((prev) => {
+              const updated = prev.filter((o) => String(o.id) !== deletedIdStr);
+              localStorage.setItem("manas_orders", JSON.stringify(updated));
+              return updated;
+            });
           }
         }
       )
