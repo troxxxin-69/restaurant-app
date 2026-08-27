@@ -89,7 +89,7 @@ export default function Checkout() {
         }));
       });
     } else {
-      notify("⚠️ Link attached. If distance is not auto-detected, please enter your street address or pincode.", "info");
+      notify("⚠️ Could not auto-detect GPS pin from link. Please enter your street address or pincode manually.", "info");
     }
   };
 
@@ -432,9 +432,17 @@ export default function Checkout() {
                     <Loader2 size={16} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-brand" />
                   )}
                 </div>
-                <p className="mt-1 text-[11px] text-neutral-400">
-                  ⚡ <strong>1-Click Auto-Fill:</strong> Pasting your Google Maps link automatically fills your address, landmark, city & pincode!
-                </p>
+
+                {resolvingLink ? (
+                  <div className="mt-1.5 flex items-center gap-1.5 text-[11px] font-semibold text-brand animate-pulse">
+                    <Loader2 size={13} className="animate-spin shrink-0" />
+                    <span>Detecting your location from Google Maps link...</span>
+                  </div>
+                ) : (
+                  <p className="mt-1 text-[11px] text-neutral-400 leading-normal break-words max-w-full">
+                    ⚡ <strong>1-Click Auto-Fill:</strong> Pasting your Google Maps link automatically fills your address, landmark, city & pincode!
+                  </p>
+                )}
               </div>
             </div>
           </div>

@@ -152,11 +152,11 @@ export async function parseGoogleMapsUrlCoordinatesAsync(url: string): Promise<{
   if (!url || typeof url !== "string") return null;
   const cleanUrl = url.trim();
 
-  // Tier 1: Instant sync parsing for full URLs with raw @lat,lng or search/lat,lng
+  // Tier 1: Instant sync client-side parsing for long-form URLs with raw @lat,lng or q=lat,lng
   const syncParsed = parseGoogleMapsUrlCoordinates(cleanUrl);
   if (syncParsed) return syncParsed;
 
-  // Tier 2: Instant Local Keyword & Hash Match (0.001s Instant Response)
+  // Tier 2: Instant Local Keyword & Landmark Match (0.001s Instant Response)
   const lowerUrl = cleanUrl.toLowerCase();
   for (const item of LOCALITY_KEYWORD_COORDINATES) {
     if (item.keywords.some((kw) => lowerUrl.includes(kw))) {
@@ -164,11 +164,35 @@ export async function parseGoogleMapsUrlCoordinatesAsync(url: string): Promise<{
     }
   }
 
-  // Tier 3: Unshorten JSON API (unshorten.me)
+  // Tier 3: Serverless API Route (/api/unshorten) - Follows HTTP Redirects Server-Side (Bypasses CORS restrictions)
   if (cleanUrl.includes("maps.app.goo.gl") || cleanUrl.includes("goo.gl")) {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 2000);
+      const timeoutId = setTimeout(() => controller.abort(), 4000);
+
+      const res = await fetch(`/api/unshorten?url=${encodeURIComponent(cleanUrl)}`, {
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.success && data.lat && data.lng) {
+          return { lat: Number(data.lat), lng: Number(data.lng) };
+        }
+        if (data && data.resolvedUrl) {
+          const parsedFromResolved = parseGoogleMapsUrlCoordinates(data.resolvedUrl);
+          if (parsedFromResolved) return parsedFromResolved;
+        }
+      }
+    } catch (e) {
+      console.warn("Vercel serverless unshortener notice:", e);
+    }
+
+    // Tier 4: Unshorten JSON API Fallback (unshorten.me)
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2500);
 
       const res = await fetch(`https://unshorten.me/json/${encodeURIComponent(cleanUrl)}`, {
         signal: controller.signal,
@@ -184,10 +208,10 @@ export async function parseGoogleMapsUrlCoordinatesAsync(url: string): Promise<{
         }
       }
     } catch (e) {
-      console.warn("Unshorten API notice:", e);
+      console.warn("Unshorten API fallback notice:", e);
     }
 
-    // Tier 4: CORS Proxy Fallbacks
+    // Tier 5: CORS Proxy Fallbacks
     const proxies = [
       `https://api.allorigins.win/raw?url=${encodeURIComponent(cleanUrl)}`,
       `https://corsproxy.io/?${encodeURIComponent(cleanUrl)}`,
@@ -196,7 +220,7 @@ export async function parseGoogleMapsUrlCoordinatesAsync(url: string): Promise<{
     for (const proxyUrl of proxies) {
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 1500);
+        const timeoutId = setTimeout(() => controller.abort(), 2000);
 
         const res = await fetch(proxyUrl, { signal: controller.signal });
         clearTimeout(timeoutId);
