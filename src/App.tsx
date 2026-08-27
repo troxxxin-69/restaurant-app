@@ -10,6 +10,7 @@ import ScrollToTop from "./components/ScrollToTop";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { GridSkeleton } from "./components/LoadingSkeleton";
 import LoginModal from "./components/LoginModal";
+import FloatingCartBar from "./components/FloatingCartBar";
 
 const Home = lazy(() => import("./pages/Home"));
 const Menu = lazy(() => import("./pages/Menu"));
@@ -77,6 +78,7 @@ export default function App() {
           </main>
           <Footer />
           <CartDrawer />
+          <FloatingCartBar />
           <LoginModal />
           <ToastContainer />
         </div>
