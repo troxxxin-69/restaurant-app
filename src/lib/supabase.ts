@@ -640,12 +640,23 @@ export async function deleteMenuItemFromSupabase(id: number) {
  */
 export async function fetchOrdersFromSupabase(): Promise<Order[]> {
   try {
-    const { data, error } = await supabase.from("orders").select("*").order("date", { ascending: false });
+    let { data, error } = await supabase.from("orders").select("*").order("created_at", { ascending: false });
+    if (error) {
+      const fallback = await supabase.from("orders").select("*");
+      data = fallback.data;
+      error = fallback.error;
+    }
     if (error) {
       console.warn("Notice: fetch orders error:", error.message);
       return [];
     }
     if (!data) return [];
+
+    data.sort((a: any, b: any) => {
+      const tA = new Date(a.created_at || a.date || 0).getTime() || Number(a.id) || 0;
+      const tB = new Date(b.created_at || b.date || 0).getTime() || Number(b.id) || 0;
+      return tB - tA;
+    });
     return data.map((ord: any) => ({
       id: String(ord.id || ord.order_id || ""),
       user_id: ord.user_id,
@@ -716,13 +727,12 @@ export async function insertOrderToSupabase(order: any) {
       id: strId,
       customer_name: custName,
       phone: custPhone,
-      payment_type: payType,
       payment: payType,
       items: typeof order.items === "string" ? order.items : JSON.stringify(order.items || []),
       total: Number(order.total) || 0,
       status: order.status || "placed",
       address: fullAddrWithLink,
-      date: order.date || new Date().toISOString(),
+      created_at: order.date || order.created_at || new Date().toISOString(),
       lat: order.lat ? Number(order.lat) : null,
       lng: order.lng ? Number(order.lng) : null,
       street_address: order.street_address || order.address || null,
