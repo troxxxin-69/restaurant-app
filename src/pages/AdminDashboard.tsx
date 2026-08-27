@@ -530,6 +530,17 @@ export default function AdminDashboard() {
                       </div>
                     </div>
 
+                    {ord.status === "cancelled" && (
+                      <div className="mt-4 rounded-2xl bg-red-500/10 p-3.5 border border-red-500/20 text-xs dark:bg-red-500/15">
+                        <p className="font-extrabold text-red-700 dark:text-red-300">
+                          ❌ Order Cancelled
+                        </p>
+                        <p className="mt-0.5 text-neutral-600 dark:text-neutral-300">
+                          Reason: <strong>{ord.cancellation_reason || "Cancelled by customer."}</strong>
+                        </p>
+                      </div>
+                    )}
+
                     {/* STRUCTURED CUSTOMER & LOCATION CARD */}
                     <div className="mt-4 rounded-2xl border border-neutral-200 bg-neutral-50/80 p-3.5 dark:border-neutral-800 dark:bg-neutral-800/40">
                       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-200/60 pb-2 dark:border-neutral-700/60">
@@ -974,6 +985,17 @@ export default function AdminDashboard() {
                         <span className="text-brand">₹{ord.total} ({ord.payment})</span>
                       </div>
                     </div>
+
+                    {ord.status === "cancelled" && (
+                      <div className="mt-4 rounded-2xl bg-red-500/10 p-3.5 border border-red-500/20 text-xs dark:bg-red-500/15">
+                        <p className="font-extrabold text-red-700 dark:text-red-300">
+                          ❌ Order Cancelled
+                        </p>
+                        <p className="mt-0.5 text-neutral-600 dark:text-neutral-300">
+                          Reason: <strong>{ord.cancellation_reason || "Cancelled by customer."}</strong>
+                        </p>
+                      </div>
+                    )}
 
                     {/* STRUCTURED CUSTOMER & LOCATION CARD */}
                     <div className="mt-4 rounded-2xl border border-neutral-200 bg-neutral-50/80 p-3.5 dark:border-neutral-800 dark:bg-neutral-800/40">
