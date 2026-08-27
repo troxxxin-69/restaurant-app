@@ -317,10 +317,28 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Load orders & set up Supabase Realtime Subscription
   const refreshOrders = useCallback(async () => {
     const fetched = await fetchOrdersFromSupabase();
-    if (fetched) {
-      setOrders(fetched);
-      localStorage.setItem("manas_orders", JSON.stringify(fetched));
+    const localBackup = safeParseJSON<Order[]>(localStorage.getItem("manas_orders"), []);
+
+    const orderMap = new Map<string, Order>();
+
+    if (Array.isArray(localBackup)) {
+      localBackup.forEach((o) => {
+        if (o && o.id) orderMap.set(String(o.id), o);
+      });
     }
+
+    if (Array.isArray(fetched)) {
+      fetched.forEach((o) => {
+        if (o && o.id) orderMap.set(String(o.id), o);
+      });
+    }
+
+    const merged = Array.from(orderMap.values()).sort(
+      (a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime()
+    );
+
+    setOrders(merged);
+    localStorage.setItem("manas_orders", JSON.stringify(merged));
   }, []);
 
   useEffect(() => {
@@ -765,7 +783,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
         });
       }
 
-      setOrders((prev) => [newOrder, ...prev]);
+      setOrders((prev) => {
+        const updatedList = [newOrder, ...prev.filter((o) => String(o.id) !== strId)];
+        localStorage.setItem("manas_orders", JSON.stringify(updatedList));
+        return updatedList;
+      });
+
       insertOrderToSupabase(newOrder).then((res) => {
         if (res && !res.success) {
           console.error("Supabase order insert notice:", res.error);
@@ -781,8 +804,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const cleanUtr = utrNumber.trim();
       const submittedAt = new Date().toISOString();
 
-      setOrders((prev) =>
-        prev.map((o) =>
+      setOrders((prev) => {
+        const updatedList = prev.map((o) =>
           String(o.id) === String(orderId)
             ? {
                 ...o,
@@ -792,8 +815,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
                 payment_submitted_at: submittedAt,
               }
             : o
-        )
-      );
+        );
+        localStorage.setItem("manas_orders", JSON.stringify(updatedList));
+        return updatedList;
+      });
 
       const res = await updateOrderStatusInSupabase(orderId, "payment_submitted", {
         utr_number: cleanUtr,
@@ -802,7 +827,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       });
 
       if (res && !res.success) {
-        notify("Failed to record payment proof: " + res.error, "error");
+        notify("Notice: Payment proof saved locally. Sync status: " + res.error, "info");
         return { success: false, error: res.error };
       }
 

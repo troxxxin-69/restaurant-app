@@ -690,18 +690,16 @@ export async function insertOrderToSupabase(order: any) {
   try {
     const { data: sessionData } = await supabase.auth.getSession();
     const sessionUser = sessionData?.session?.user;
-    let authUserId = sessionUser?.id;
+    let authUserId = sessionUser?.id || order.user_id;
 
     if (!authUserId) {
       const userRes = await supabase.auth.getUser();
       if (userRes.data?.user) {
         authUserId = userRes.data.user.id;
-      } else {
-        authUserId = undefined;
       }
     }
 
-    const rawId = typeof order.id === "number" ? order.id : Number(String(order.id).replace(/\D/g, "")) || Math.floor(10000000 + Math.random() * 89999999);
+    const strId = String(order.id || Math.floor(10000000 + Math.random() * 89999999));
     const custName = order.customer_name || (sessionUser?.user_metadata?.full_name || sessionUser?.user_metadata?.name || "Customer");
     const custPhone = order.phone || sessionUser?.user_metadata?.phone || "9876543210";
     const payType = order.payment_type || order.payment || "Cash On Delivery";
@@ -711,22 +709,22 @@ export async function insertOrderToSupabase(order: any) {
       : order.address;
 
     const payload: Record<string, any> = {
-      id: rawId,
+      id: strId,
       customer_name: custName,
       phone: custPhone,
       payment_type: payType,
       payment: payType,
-      items: order.items,
-      total: order.total,
+      items: typeof order.items === "string" ? order.items : JSON.stringify(order.items || []),
+      total: Number(order.total) || 0,
       status: order.status || "placed",
       address: fullAddrWithLink,
       date: order.date || new Date().toISOString(),
       lat: order.lat ? Number(order.lat) : null,
       lng: order.lng ? Number(order.lng) : null,
-      street_address: order.street_address || order.address,
+      street_address: order.street_address || order.address || null,
       landmark: order.landmark || null,
-      city: order.city || null,
-      pincode: order.pincode || null,
+      city: order.city || "Udaipur",
+      pincode: order.pincode || "313001",
       google_maps_link: order.google_maps_link || null,
       location_mode: order.location_mode || null,
       utr_number: order.utr_number || null,
@@ -738,25 +736,15 @@ export async function insertOrderToSupabase(order: any) {
       payload.user_id = authUserId;
     }
 
-    const res = await supabase.from("orders").insert([payload]);
-    if (!res.error) {
-      console.log("Order inserted successfully into Supabase orders table!");
-      return { success: true, data: res.data };
+    // Upsert into orders table with string ID matching TEXT PRIMARY KEY
+    const { data, error } = await supabase.from("orders").upsert(payload, { onConflict: "id" }).select();
+    if (!error) {
+      console.log(`Order #${strId} inserted/updated successfully into Supabase orders table!`);
+      return { success: true, data };
     }
 
-    console.warn("Attempt 1 insert notice:", res.error.message);
-
-    // Attempt 2: If id is AUTO INCREMENT / UUID in database (omit custom numeric id)
-    const payloadNoId = { ...payload };
-    delete payloadNoId.id;
-    const resNoId = await supabase.from("orders").insert([payloadNoId]);
-    if (!resNoId.error) {
-      console.log("Order inserted successfully without custom ID!");
-      return { success: true, data: resNoId.data };
-    }
-
-    console.error("Supabase insert order error:", resNoId.error.message);
-    return { success: false, error: resNoId.error.message || res.error.message };
+    console.error("Supabase insert order error:", error.message);
+    return { success: false, error: error.message };
   } catch (err: any) {
     console.error("Exception in insertOrderToSupabase:", err);
     return { success: false, error: err?.message || "Failed to insert order" };
