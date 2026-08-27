@@ -33,7 +33,7 @@ import {
 import { cn } from "../utils/cn";
 import { safeParseJSON, validatePhone, sanitizeGoogleMapsUrl } from "../utils/sanitize";
 import { exportOrdersToCsv } from "../utils/exportCsv";
-import { UDAIPUR_AREA_COORDINATES, LOCALITY_KEYWORD_COORDINATES, parseGoogleMapsUrlCoordinates, RESTAURANT_LAT, RESTAURANT_LNG } from "../utils/distance";
+import { getOrderCoordinates, getOrderMapUrl } from "../utils/mapUtils";
 
 export default function AdminDashboard() {
   const {
@@ -229,67 +229,6 @@ export default function AdminDashboard() {
       String(o.pincode || "").toLowerCase().includes(term)
     );
   });
-
-  const getOrderCoordinates = (ord: any): { lat: number; lng: number; source?: string; mode?: string } => {
-    // Mode 1: Google Maps Link Priority
-    const effectiveLink =
-      ord?.google_maps_link ||
-      String(ord?.address || "").match(/\[Google Maps Link:\s*([^\]]+)\]/i)?.[1] ||
-      String(ord?.address || "").match(/(https:\/\/(?:maps\.app\.goo\.gl|goo\.gl\/maps|www\.google\.com\/maps|google\.com\/maps)[^\s()\]]+)/i)?.[1];
-
-    if (effectiveLink) {
-      const parsedLink = parseGoogleMapsUrlCoordinates(effectiveLink);
-      if (parsedLink) {
-        return { lat: parsedLink.lat, lng: parsedLink.lng, source: "Customer Shared Google Maps Link", mode: "google_maps_link" };
-      }
-    }
-
-    // Mode 2: GPS Device Hardware Pin Priority
-    const match = String(ord?.address || "").match(/GPS Pin:?\s*([0-9.-]+),\s*([0-9.-]+)/i);
-    if (match && match[1] && match[2]) {
-      const lat = parseFloat(match[1]);
-      const lng = parseFloat(match[2]);
-      if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
-        return { lat, lng, source: "Customer Device GPS Pin", mode: "gps_device" };
-      }
-    }
-
-    const latNum = Number(ord?.lat);
-    const lngNum = Number(ord?.lng);
-    const isDabokDefault = Math.abs(latNum - RESTAURANT_LAT) < 0.001 && Math.abs(lngNum - RESTAURANT_LNG) < 0.001;
-
-    if (ord?.location_mode === "gps_device" && !isNaN(latNum) && !isNaN(lngNum) && latNum !== 0 && lngNum !== 0) {
-      return { lat: latNum, lng: lngNum, source: "Customer Device GPS Pin", mode: "gps_device" };
-    }
-
-    // Mode 3: Manual Address Geocoding (Institution & Locality matching)
-    const fullText = `${ord?.street_address || ""} ${ord?.address || ""} ${ord?.landmark || ""}`.toLowerCase();
-    for (const item of LOCALITY_KEYWORD_COORDINATES) {
-      if (item.keywords.some((kw) => fullText.includes(kw))) {
-        return { lat: item.lat, lng: item.lng, source: `Typed Address (${item.name})`, mode: "manual_address" };
-      }
-    }
-
-    if (!isNaN(latNum) && !isNaN(lngNum) && latNum !== 0 && lngNum !== 0 && !isDabokDefault) {
-      return { lat: latNum, lng: lngNum, source: "Saved Coordinates", mode: ord?.location_mode || "manual_address" };
-    }
-
-    const pincodeStr = (ord?.pincode || String(ord?.address || "").match(/313\d{3}/)?.[0] || "").trim();
-    if (pincodeStr && UDAIPUR_AREA_COORDINATES[pincodeStr]) {
-      const area = UDAIPUR_AREA_COORDINATES[pincodeStr];
-      return { lat: area.lat, lng: area.lng, source: `Typed Address (${area.name})`, mode: "manual_address" };
-    }
-
-    if (effectiveLink) {
-      const parsed = parseGoogleMapsUrlCoordinates(effectiveLink);
-      if (parsed) return { lat: parsed.lat, lng: parsed.lng, source: "Customer Shared Google Maps Link", mode: "google_maps_link" };
-    }
-
-    if (!isNaN(latNum) && !isNaN(lngNum) && latNum !== 0 && lngNum !== 0) {
-      return { lat: latNum, lng: lngNum, source: "GPS Pin", mode: "manual_address" };
-    }
-    return { lat: RESTAURANT_LAT, lng: RESTAURANT_LNG, source: "Restaurant Dabok Branch", mode: "manual_address" };
-  };
 
   const filteredMenuItems = menuItems.filter(
     (item) =>
@@ -589,11 +528,11 @@ export default function AdminDashboard() {
                       {/* LIVE CUSTOMER GPS LOCATION MAP & DIRECT GPS NAVIGATION */}
                       {(() => {
                         const coords = getOrderCoordinates(ord);
-                        const effectiveCustomerLink =
+                        const navUrl = getOrderMapUrl(ord);
+                        const isSharedLink =
                           ord?.google_maps_link ||
                           String(ord?.address || "").match(/\[Google Maps Link:\s*([^\]]+)\]/i)?.[1] ||
                           String(ord?.address || "").match(/(https:\/\/(?:maps\.app\.goo\.gl|goo\.gl\/maps|www\.google\.com\/maps|google\.com\/maps)[^\s()\]]+)/i)?.[1];
-                        const navUrl = effectiveCustomerLink || `https://www.google.com/maps?q=${coords.lat},${coords.lng}`;
 
                         return (
                           <div className="mt-3 border-t border-neutral-200/60 pt-3 dark:border-neutral-700/60">
@@ -607,7 +546,7 @@ export default function AdminDashboard() {
                                 rel="noopener noreferrer"
                                 className="inline-flex items-center gap-1.5 rounded-xl bg-red-600 px-3.5 py-1.5 text-xs font-black text-white shadow-md shadow-red-600/30 transition hover:scale-105 hover:bg-red-700"
                               >
-                                <Navigation size={13} /> {effectiveCustomerLink ? "Open Customer's Exact Shared Link" : "Open Exact GPS Pin on Google Maps"}
+                                <Navigation size={13} /> {isSharedLink ? "Open Customer's Exact Shared Link" : "Open Exact GPS Pin on Google Maps"}
                               </a>
                             </div>
                             <MapPlaceholder
@@ -1025,6 +964,12 @@ export default function AdminDashboard() {
                       {/* LIVE CUSTOMER GPS LOCATION MAP & DIRECT GPS NAVIGATION */}
                       {(() => {
                         const coords = getOrderCoordinates(ord);
+                        const navUrl = getOrderMapUrl(ord);
+                        const isSharedLink =
+                          ord?.google_maps_link ||
+                          String(ord?.address || "").match(/\[Google Maps Link:\s*([^\]]+)\]/i)?.[1] ||
+                          String(ord?.address || "").match(/(https:\/\/(?:maps\.app\.goo\.gl|goo\.gl\/maps|www\.google\.com\/maps|google\.com\/maps)[^\s()\]]+)/i)?.[1];
+
                         return (
                           <div className="mt-3 border-t border-neutral-200/60 pt-3 dark:border-neutral-700/60">
                             <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2">
@@ -1032,18 +977,19 @@ export default function AdminDashboard() {
                                 🎯 Customer GPS Pin ({coords.lat.toFixed(4)}, {coords.lng.toFixed(4)})
                               </span>
                               <a
-                                href={`https://www.google.com/maps?q=${coords.lat},${coords.lng}`}
+                                href={navUrl}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="inline-flex items-center gap-1.5 rounded-xl bg-red-600 px-3.5 py-1.5 text-xs font-black text-white shadow-md shadow-red-600/30 transition hover:scale-105 hover:bg-red-700"
                               >
-                                <Navigation size={13} /> Open Exact GPS Pin on Google Maps
+                                <Navigation size={13} /> {isSharedLink ? "Open Customer's Exact Shared Link" : "Open Exact GPS Pin on Google Maps"}
                               </a>
                             </div>
                             <MapPlaceholder
                               height="h-44"
                               lat={coords.lat}
                               lng={coords.lng}
+                              googleMapsUrl={navUrl}
                               title={`Delivered Destination #${ord.id}`}
                               subtitle={`Exact Customer Pin: ${ord.customer_name || "Customer"}`}
                             />
