@@ -310,7 +310,7 @@ export async function syncCustomerProfile(userId: string, email: string, name?: 
     // Save to local registered users cache
     if (typeof window !== "undefined") {
       const localUsers = safeParseJSON<UserProfileWithRole[]>(localStorage.getItem("manas_registered_users"), []);
-      const idx = localUsers.findIndex((u) => u.id === userId || u.email.toLowerCase() === cleanEmail);
+      const idx = localUsers.findIndex((u) => u && (u.id === userId || (u.email || "").toLowerCase() === cleanEmail));
       const updatedUser: UserProfileWithRole = {
         id: userId,
         email,
@@ -391,12 +391,13 @@ export async function fetchAllUserRolesAndProfiles(): Promise<UserProfileWithRol
     if (customers) {
       customers.forEach((c: any) => {
         if (c && c.email) {
-          userMap.set(c.email.toLowerCase(), {
+          const lowerEmail = String(c.email).toLowerCase();
+          userMap.set(lowerEmail, {
             id: c.id,
             email: c.email || "",
             name: c.name || c.email?.split("@")[0] || "Customer",
             phone: c.phone || "",
-            role: roleMap[c.id] || (c.email?.toLowerCase() === "troxin694@gmail.com" ? "restaurant_admin" : "customer"),
+            role: roleMap[c.id] || (lowerEmail === "troxin694@gmail.com" ? "restaurant_admin" : "customer"),
             created_at: c.created_at || c.updated_at || new Date().toISOString(),
           });
         }
@@ -407,15 +408,18 @@ export async function fetchAllUserRolesAndProfiles(): Promise<UserProfileWithRol
     const localUsers = safeParseJSON<any[]>(localStorage.getItem("manas_registered_users"), []);
     if (Array.isArray(localUsers)) {
       localUsers.forEach((u: any) => {
-        if (u && u.email && !userMap.has(u.email.toLowerCase())) {
-          userMap.set(u.email.toLowerCase(), {
-            id: u.id || u.email,
-            email: u.email,
-            name: u.name || u.email.split("@")[0] || "Customer",
-            phone: u.phone || "",
-            role: u.role || (u.email.toLowerCase() === "troxin694@gmail.com" ? "restaurant_admin" : "customer"),
-            created_at: u.created_at || new Date().toISOString(),
-          });
+        if (u && u.email) {
+          const lowerEmail = String(u.email).toLowerCase();
+          if (!userMap.has(lowerEmail)) {
+            userMap.set(lowerEmail, {
+              id: u.id || u.email,
+              email: u.email,
+              name: u.name || u.email.split("@")[0] || "Customer",
+              phone: u.phone || "",
+              role: u.role || (lowerEmail === "troxin694@gmail.com" ? "restaurant_admin" : "customer"),
+              created_at: u.created_at || new Date().toISOString(),
+            });
+          }
         }
       });
     }
@@ -648,7 +652,7 @@ export async function fetchOrdersFromSupabase(): Promise<Order[]> {
       customer_name: ord.customer_name,
       phone: ord.phone,
       payment_type: ord.payment_type,
-      items: typeof ord.items === "string" ? JSON.parse(ord.items) : ord.items || [],
+      items: typeof ord.items === "string" ? safeParseJSON(ord.items, []) : ord.items || [],
       total: Number(ord.total || ord.total_amount) || 0,
       status: ord.status || "placed",
       address: ord.address || ord.delivery_address || "",

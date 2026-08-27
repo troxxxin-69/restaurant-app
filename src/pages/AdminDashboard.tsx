@@ -84,7 +84,7 @@ export default function AdminDashboard() {
     localRoles[targetEmail] = "restaurant_admin";
 
     // 2. Find in current staff users list
-    const foundUser = staffUsers.find((u) => u.email.toLowerCase() === targetEmail);
+    const foundUser = staffUsers.find((u) => u && (u.email || "").toLowerCase() === targetEmail);
     if (foundUser) {
       localRoles[foundUser.id] = "restaurant_admin";
       await updateUserRoleInSupabase(foundUser.id, "restaurant_admin");
@@ -114,7 +114,7 @@ export default function AdminDashboard() {
     }
 
     // If current user logged in matches targetEmail, elevate live session
-    if (typeof window !== "undefined" && user.email.toLowerCase() === targetEmail) {
+    if (typeof window !== "undefined" && (user?.email || "").toLowerCase() === targetEmail) {
       const activeUser = safeParseJSON<Record<string, any>>(localStorage.getItem("manas_user"), {});
       if (activeUser && activeUser.email) {
         localStorage.setItem("manas_user", JSON.stringify({ ...activeUser, role: "restaurant_admin" }));
@@ -205,7 +205,7 @@ export default function AdminDashboard() {
   }, [activeTab, refreshMenu, fetchStaffUsersSilent]);
 
   const activeOrdersList = orders.filter(
-    (o) => o.status !== "delivered" && o.status !== "cancelled" && o.status !== "pending_payment" && o.status !== "payment_submitted"
+    (o) => o.status !== "delivered" && o.status !== "cancelled"
   );
   const pendingPaymentOrders = orders.filter(
     (o) => o.status === "payment_submitted" || o.status === "pending_payment"
@@ -293,8 +293,9 @@ export default function AdminDashboard() {
 
   const filteredMenuItems = menuItems.filter(
     (item) =>
-      item.name.toLowerCase().includes(search.toLowerCase()) ||
-      item.category.toLowerCase().includes(search.toLowerCase())
+      item &&
+      ((item.name || "").toLowerCase().includes((search || "").toLowerCase()) ||
+        (item.category || "").toLowerCase().includes((search || "").toLowerCase()))
   );
 
   const filteredStaffUsers = staffUsers.filter((u) => {
@@ -696,6 +697,14 @@ export default function AdminDashboard() {
 
                   {/* Status Lifecycle Control Buttons */}
                   <div className="mt-6 flex flex-wrap gap-2 pt-2">
+                    {(ord.status === "payment_submitted" || ord.status === "pending_payment") && (
+                      <button
+                        onClick={() => adminVerifyOrderPayment(ord.id, true)}
+                        className="flex-1 rounded-full bg-emerald-600 py-2.5 text-xs font-bold text-white shadow transition hover:bg-emerald-700"
+                      >
+                        ✅ Verify & Approve Payment (₹{ord.total})
+                      </button>
+                    )}
                     {(ord.status === "placed" || ord.status === "paid") && (
                       <button
                         onClick={() => updateOrderStatus(ord.id, "accepted")}

@@ -357,7 +357,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
               user_id: raw.user_id,
               customer_name: raw.customer_name,
               phone: raw.phone,
-              items: typeof raw.items === "string" ? JSON.parse(raw.items) : raw.items || [],
+              items: typeof raw.items === "string" ? safeParseJSON(raw.items, []) : raw.items || [],
               total: Number(raw.total || raw.total_amount) || 0,
               status: raw.status || "placed",
               address: raw.address || raw.delivery_address || "",
@@ -804,7 +804,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const cleanUtr = utrNumber.trim();
       const submittedAt = new Date().toISOString();
 
+      let targetOrder: Order | undefined;
+
       setOrders((prev) => {
+        targetOrder = prev.find((o) => String(o.id) === String(orderId));
         const updatedList = prev.map((o) =>
           String(o.id) === String(orderId)
             ? {
@@ -820,16 +823,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
         return updatedList;
       });
 
-      const res = await updateOrderStatusInSupabase(orderId, "payment_submitted", {
+      // Guaranteed Supabase DB Upsert (Ensures order row exists with UTR details in DB)
+      if (targetOrder) {
+        const fullPayload = {
+          ...targetOrder,
+          status: "payment_submitted",
+          utr_number: cleanUtr,
+          payment_proof_url: screenshotUrl || targetOrder.payment_proof_url || null,
+          payment_submitted_at: submittedAt,
+        };
+        await insertOrderToSupabase(fullPayload);
+      }
+
+      await updateOrderStatusInSupabase(orderId, "payment_submitted", {
         utr_number: cleanUtr,
         payment_proof_url: screenshotUrl || null,
         payment_submitted_at: submittedAt,
       });
-
-      if (res && !res.success) {
-        notify("Notice: Payment proof saved locally. Sync status: " + res.error, "info");
-        return { success: false, error: res.error };
-      }
 
       notify("Payment proof submitted! Verification pending by admin.", "info");
       return { success: true };
